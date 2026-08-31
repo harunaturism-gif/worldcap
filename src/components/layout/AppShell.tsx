@@ -1,5 +1,5 @@
 import { Home, Sparkles, Ticket, Users, WalletCards } from 'lucide-react';
-import type { ReactNode } from 'react';
+import type { ElementType, ReactNode } from 'react';
 import type { AppSession } from '../../domains/identity/types';
 import { formatWld, useMvpStore } from '../../store/mvpStore';
 
@@ -11,6 +11,15 @@ const navigation = [
   { id: 'social', label: 'Social', icon: Users },
   { id: 'wallet', label: 'Wallet', icon: WalletCards },
 ] as const;
+
+function NavItem({ label, icon: Icon, isActive, onClick }: { label: string; icon: ElementType; isActive: boolean; onClick: () => void }) {
+  return (
+    <button className={isActive ? 'active' : ''} onClick={onClick} aria-current={isActive ? 'page' : undefined}>
+      <span className="nav-icon"><Icon size={21} /></span>
+      <span>{label}</span>
+    </button>
+  );
+}
 
 export function AppShell({ session, tab, onTab, onLogout, children }: { session: AppSession; tab: Tab; onTab: (tab: Tab) => void; onLogout: () => void; children: ReactNode }) {
   const { snapshot } = useMvpStore();
@@ -27,9 +36,15 @@ export function AppShell({ session, tab, onTab, onLogout, children }: { session:
     </header>
     <main className="app-content">{children}</main>
     <nav className="bottom-nav" aria-label="Main navigation">
-      {navigation.map(({ id, label, icon: Icon }) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => onTab(id)} aria-current={tab === id ? 'page' : undefined}>
-        <span className="nav-icon"><Icon size={21} /></span><span>{label}</span>
-      </button>)}
+      {navigation.map((item) => (
+        <NavItem
+          key={item.id}
+          label={item.label}
+          icon={item.icon}
+          isActive={tab === item.id}
+          onClick={() => onTab(item.id)}
+        />
+      ))}
     </nav>
   </div>;
 }
