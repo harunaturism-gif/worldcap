@@ -78,9 +78,34 @@ export function serializeLogoutCookie(isProduction: boolean): string {
 
 export function extractSessionToken(cookieHeader: string | undefined, isProduction: boolean): string | null {
   if (!cookieHeader) return null;
-  const expected = cookieName(isProduction);
-  const matches = cookieHeader.split(';').map((part) => part.trim()).filter((part) => part.startsWith(`${expected}=`)).map((part) => part.slice(expected.length + 1));
-  return matches.length === 1 && JWT_PATTERN.test(matches[0] ?? '') ? matches[0] ?? null : null;
+  const expected = cookieName(isProduction) + '=';
+
+  let match: string | null = null;
+  let start = 0;
+
+  while (start < cookieHeader.length) {
+    while (start < cookieHeader.length && cookieHeader.charCodeAt(start) === 32) {
+      start++;
+    }
+
+    let end = cookieHeader.indexOf(';', start);
+    if (end === -1) end = cookieHeader.length;
+
+    if (cookieHeader.startsWith(expected, start)) {
+      if (match !== null) return null;
+
+      let valEnd = end;
+      while (valEnd > start && cookieHeader.charCodeAt(valEnd - 1) === 32) {
+        valEnd--;
+      }
+
+      match = cookieHeader.slice(start + expected.length, valEnd);
+    }
+
+    start = end + 1;
+  }
+
+  return match !== null && JWT_PATTERN.test(match) ? match : null;
 }
 
 export function isExpectedBrowserOrigin(origin: string | undefined, expectedOrigin: string): boolean { return origin === expectedOrigin; }
