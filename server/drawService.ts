@@ -10,6 +10,7 @@ import { verifyDraw } from './verifyDraw.js';
 import { createPublicDrawArtifact, type PublicDrawArtifact } from './publicManifest.js';
 import { verifyDrawV2, type DrawVerificationV2 } from './verifyDrawV2.js';
 import { operationalLog } from './structuredLogger.js';
+import { algorithmVersionHash, drawIdHash, type CommitmentAnchorReader } from './commitmentAnchor.js';
 
 function tierAllowed(draw: DrawRecord, title: DrawEligibilityCandidate): boolean {
   if (!draw.allowedTierCodes.includes(title.tierCode)) return false;
@@ -30,7 +31,11 @@ export class DrawService {
   private readonly candidates = new Map<string, Map<string, DrawEligibilityCandidate>>();
   private readonly closeLocks = new Map<string, Promise<void>>();
 
-  constructor(private readonly repository: DrawRepository, private readonly randomness: DrawRandomnessProvider) {}
+  constructor(
+    private readonly repository: DrawRepository,
+    private readonly randomness: DrawRandomnessProvider,
+    private readonly anchor?: { reader: CommitmentAnchorReader; required: boolean },
+  ) {}
 
   async createDraw(input: { id: string; campaignId: string; eligibilityScope: DrawEligibilityScope; allowedTierCodes: readonly string[]; opensAt: string; closesAt: string }): Promise<DrawRecord> {
     if (!input.id || !input.campaignId || input.allowedTierCodes.length === 0 || new Set(input.allowedTierCodes).size !== input.allowedTierCodes.length) throw new Error('draw_configuration_invalid');
@@ -124,7 +129,22 @@ export class DrawService {
     const draw = await this.repository.get(drawId); const artifact = await this.getPublicArtifact(drawId);
     if (!draw || !artifact) return null;
     const randomness = await this.repository.getRandomnessEvidence(drawId) ?? { requestId: null, provider: null, network: null, independentlyVerified: false };
-    return verifyDrawV2({ draw, artifact, randomness });
+    let anchorEvidence;
+    if (this.anchor) {
+      try {
+        const anchored = await this.anchor.reader.get(drawId);
+        anchorEvidence = {
+          required: this.anchor.required, exists: Boolean(anchored), drawId,
+          manifestRoot: anchored?.manifestRoot ?? null, eligibleCount: anchored?.eligibleCount.toString() ?? null,
+          algorithmVersionHash: anchored?.algorithmVersionHash ?? null,
+          verified: Boolean(anchored && anchored.drawIdHash.toLowerCase() === drawIdHash(drawId).toLowerCase()
+            && anchored.algorithmVersionHash.toLowerCase() === algorithmVersionHash(draw.algorithmVersion).toLowerCase()),
+        };
+      } catch {
+        anchorEvidence = { required: this.anchor.required, exists: false, drawId, manifestRoot: null, eligibleCount: null, algorithmVersionHash: null, verified: false };
+      }
+    }
+    return verifyDrawV2({ draw, artifact, randomness, anchor: anchorEvidence });
   }
 
   async getFairness(drawId: string): Promise<DrawFairnessResponse | null> {

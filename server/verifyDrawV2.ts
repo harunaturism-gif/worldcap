@@ -2,6 +2,7 @@ import { computeArtifactContentHash, PUBLIC_DRAW_SCHEMA_VERSION, type PublicDraw
 import { computeManifestCommitment } from './drawManifest.js';
 import { parseRandomnessSeed, selectWinningIndex } from './drawSelection.js';
 import type { DrawRecord } from './drawTypes.js';
+import { algorithmVersionHash } from './commitmentAnchor.js';
 
 export interface AnchorEvidence {
   required: boolean;
@@ -23,6 +24,8 @@ export interface RandomnessEvidence {
 export interface DrawVerificationV2 {
   verified: boolean;
   manifestVerified: boolean;
+  anchorRequired: boolean;
+  anchorAvailable: boolean;
   anchorVerified: boolean;
   randomnessVerified: boolean;
   winnerVerified: boolean;
@@ -47,8 +50,12 @@ export function verifyDrawV2(input: { draw: DrawRecord; artifact: PublicDrawArti
     && artifact.manifestRoot === draw.eligibilityCommitment
     && artifact.artifactContentHash === expectedArtifactHash;
   if (!manifestVerified) errors.push('manifest_verification_failed');
-  const anchorVerified = !anchor?.required || Boolean(anchor.exists && anchor.verified && anchor.drawId === draw.id && anchor.manifestRoot === artifact.manifestRoot && anchor.eligibleCount === artifact.eligibleCount);
-  if (!anchorVerified) errors.push('anchor_verification_failed');
+  const anchorRequired = anchor?.required ?? false;
+  const anchorAvailable = anchor?.exists ?? false;
+  const anchorVerified = Boolean(anchor?.exists && anchor.verified && anchor.drawId === draw.id
+    && anchor.manifestRoot === artifact.manifestRoot && anchor.eligibleCount === artifact.eligibleCount
+    && anchor.algorithmVersionHash?.toLowerCase() === algorithmVersionHash(artifact.algorithmVersion).toLowerCase());
+  if (anchorRequired && !anchorVerified) errors.push('anchor_verification_failed');
   const randomnessVerified = Boolean(draw.randomnessSeed && draw.randomnessRequestId && randomness.independentlyVerified
     && randomness.requestId === draw.randomnessRequestId && randomness.provider === draw.randomnessProvider);
   if (!randomnessVerified) errors.push('randomness_verification_failed');
@@ -60,5 +67,5 @@ export function verifyDrawV2(input: { draw: DrawRecord; artifact: PublicDrawArti
   }
   const winnerVerified = Boolean(winner && winningIndex === draw.winningIndex && winner.titleId === draw.winningTitleId);
   if (!winnerVerified) errors.push('winner_verification_failed');
-  return { verified: errors.length === 0, manifestVerified, anchorVerified, randomnessVerified, winnerVerified, algorithmVerified, winningIndex: winningIndex?.toString() ?? null, winningTitle: winner?.serial ?? null, errors };
+  return { verified: errors.length === 0, manifestVerified, anchorRequired, anchorAvailable, anchorVerified, randomnessVerified, winnerVerified, algorithmVerified, winningIndex: winningIndex?.toString() ?? null, winningTitle: winner?.serial ?? null, errors };
 }

@@ -27,6 +27,7 @@ import { createSupabaseReadOnlyDrawRepository } from './supabaseDrawRepository.j
 import { createRuntimePolicy, validateProviderReadiness } from './runtimePolicy.js';
 import { createOperationalRouter } from './operationalHealth.js';
 import { operationalLog } from './structuredLogger.js';
+import { createCommitmentAnchorConfig, ViemCommitmentAnchorReader } from './commitmentAnchor.js';
 
 const rootEnv = fileURLToPath(new URL('../.env', import.meta.url));
 const modeEnv = fileURLToPath(new URL(`../.env.${process.env.NODE_ENV ?? 'development'}`, import.meta.url));
@@ -42,6 +43,7 @@ const appSessionConfig = createAppSessionConfig(process.env);
 const persistenceConfig = createPersistenceConfig(process.env);
 const paymentConfig = createPaymentConfig(process.env);
 const runtimePolicy = createRuntimePolicy(process.env);
+const commitmentAnchorConfig = createCommitmentAnchorConfig(process.env);
 const devAuthEnabled = isDevelopmentAuthEnabled(process.env);
 const isProductionProcess = process.env.NODE_ENV !== 'development';
 
@@ -70,7 +72,11 @@ const economyService = economyRepository && paymentVerifier && paymentConfig
 let drawRepository: DrawRepository | null = null;
 if (!isProductionProcess) drawRepository = new DevelopmentMemoryDrawRepository();
 if (isProductionProcess && persistenceConfig?.mode === 'supabase') drawRepository = createSupabaseReadOnlyDrawRepository(persistenceConfig);
-const drawService = drawRepository ? new DrawService(drawRepository, createDrawRandomnessProvider(process.env)) : null;
+const drawService = drawRepository ? new DrawService(
+  drawRepository,
+  createDrawRandomnessProvider(process.env),
+  commitmentAnchorConfig ? { reader: new ViemCommitmentAnchorReader(commitmentAnchorConfig), required: runtimePolicy.runtime !== 'development' } : undefined,
+) : null;
 
 async function probePersistence(): Promise<boolean> {
   if (persistenceConfig?.mode === 'development-memory') return true;

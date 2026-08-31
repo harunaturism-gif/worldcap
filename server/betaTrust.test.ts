@@ -8,7 +8,7 @@ import type { DrawEligibilityCandidate } from './drawTypes.js';
 import { computeArtifactContentHash, createPublicDrawArtifact, serializePublicDrawArtifact } from './publicManifest.js';
 import { verifyDrawV2 } from './verifyDrawV2.js';
 import { createWitnetConfig, WitnetDrawRandomnessProvider, type WitnetChainAdapter, type WitnetConfig } from './witnetRandomness.js';
-import { MemoryCommitmentAnchor } from './commitmentAnchor.js';
+import { algorithmVersionHash, MemoryCommitmentAnchor } from './commitmentAnchor.js';
 
 const campaignId = 'campaign-beta';
 const finalTime = '2026-10-01T00:00:01.000Z';
@@ -74,9 +74,27 @@ describe('closed beta trust vertical', () => {
       anchor: { required: false, exists: false, drawId: draw.id, manifestRoot: null, eligibleCount: null, algorithmVersionHash: null, verified: false },
     });
     assert.equal(verified.verified, true);
+    assert.equal(verified.anchorAvailable, false);
+    assert.equal(verified.anchorVerified, false);
     const stored = (await repository.get('beta-draw'))!;
     assert.equal(verified.winningTitle, 'PURPLE-BETA-000001');
     assert.equal(stored.winningTitleId, title.id);
+  });
+
+  it('requires a configured anchor to match every committed field', async () => {
+    const provider = new CountingProvider();
+    const { service, manifest } = await closedDraw(provider);
+    await service.requestRandomness('beta-draw');
+    const draw = await service.resolveDraw('beta-draw');
+    const artifact = createPublicDrawArtifact(draw, manifest);
+    const result = verifyDrawV2({
+      draw, artifact,
+      randomness: { requestId: draw.randomnessRequestId, provider: draw.randomnessProvider, network: 'local-test', independentlyVerified: true },
+      anchor: { required: true, exists: true, drawId: draw.id, manifestRoot: artifact.manifestRoot, eligibleCount: artifact.eligibleCount, algorithmVersionHash: algorithmVersionHash('substituted-version'), verified: true },
+    });
+    assert.equal(result.anchorVerified, false);
+    assert.equal(result.verified, false);
+    assert.deepEqual(result.errors, ['anchor_verification_failed']);
   });
 
   it('Verify Draw V2 rejects commitment and stored-winner substitution', async () => {
