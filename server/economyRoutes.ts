@@ -37,9 +37,23 @@ export function createEconomyRouter(service: EconomyService, sessionConfig: AppS
     const campaignId = request.body?.campaignId;
     const tierId = request.body?.tierId;
     const quantity = request.body?.quantity;
-    if (typeof campaignId !== 'string' || !UUID_PATTERN.test(campaignId) || (tierId !== undefined && (typeof tierId !== 'string' || !UUID_PATTERN.test(tierId))) || !Number.isSafeInteger(quantity)) return response.status(400).json({ error: 'Invalid purchase request' });
-    try { return response.status(201).json(safeJson(await service.createPurchaseIntent(userFor(request), { campaignId, tierId, quantity }))); }
-    catch (error) { return response.status(errorStatus(error instanceof Error ? error.message : '')).json({ error: 'Purchase intent rejected' }); }
+
+    if (typeof campaignId !== 'string' || !UUID_PATTERN.test(campaignId)) {
+      return response.status(400).json({ error: 'Invalid purchase request' });
+    }
+    if (tierId !== undefined && (typeof tierId !== 'string' || !UUID_PATTERN.test(tierId))) {
+      return response.status(400).json({ error: 'Invalid purchase request' });
+    }
+    if (!Number.isSafeInteger(quantity)) {
+      return response.status(400).json({ error: 'Invalid purchase request' });
+    }
+
+    try {
+      const intent = await service.createPurchaseIntent(userFor(request), { campaignId, tierId, quantity });
+      return response.status(201).json(safeJson(intent));
+    } catch (error) {
+      return response.status(errorStatus(error instanceof Error ? error.message : '')).json({ error: 'Purchase intent rejected' });
+    }
   });
 
   router.post('/purchase-intents/:reference/confirm', createFixedWindowRateLimiter(20, 60_000), async (request, response) => {
