@@ -19,6 +19,11 @@ import {
 import { LocalRandomnessProvider } from './randomness.js';
 import { createFixedWindowRateLimiter } from './rateLimit.js';
 import { createSupabaseEconomyRepository } from './supabaseEconomyRepository.js';
+import { createDrawRandomnessProvider } from './drawRandomness.js';
+import { DevelopmentMemoryDrawRepository, type DrawRepository } from './drawRepository.js';
+import { createDrawFairnessRouter } from './drawRoutes.js';
+import { DrawService } from './drawService.js';
+import { createSupabaseReadOnlyDrawRepository } from './supabaseDrawRepository.js';
 
 const rootEnv = fileURLToPath(new URL('../.env', import.meta.url));
 const modeEnv = fileURLToPath(new URL(`../.env.${process.env.NODE_ENV ?? 'development'}`, import.meta.url));
@@ -56,6 +61,10 @@ if (paymentConfig?.runtime === 'production') paymentVerifier = new WorldDevelope
 const economyService = economyRepository && paymentVerifier && paymentConfig
   ? new EconomyService(economyRepository, paymentVerifier, new LocalRandomnessProvider(), paymentConfig)
   : null;
+let drawRepository: DrawRepository | null = null;
+if (!isProductionProcess) drawRepository = new DevelopmentMemoryDrawRepository();
+if (isProductionProcess && persistenceConfig?.mode === 'supabase') drawRepository = createSupabaseReadOnlyDrawRepository(persistenceConfig);
+const drawService = drawRepository ? new DrawService(drawRepository, createDrawRandomnessProvider(process.env)) : null;
 
 app.disable('x-powered-by');
 app.get('/api/health', (_request, response) => response.json({
@@ -140,6 +149,7 @@ app.post('/api/auth/logout', (_request, response) => {
 });
 
 if (economyService && appSessionConfig) app.use('/api/economy', createEconomyRouter(economyService, appSessionConfig));
+if (drawService) app.use('/api/draws', createDrawFairnessRouter(drawService));
 
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   void _next;
