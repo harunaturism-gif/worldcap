@@ -13,16 +13,16 @@ The beta proves the product and trust loop without representing simulated accoun
 - Phase 3A manifest commitment, unbiased deterministic winner selection, draw state machine, privacy-safe fairness API, Verify Draw v1, and modeled vault/scratch/renewal liabilities.
 - Frozen baseline re-verified: 53 tests, frontend/server typecheck, lint, frontend build, and server build all pass.
 
-## BUILD NOW
+## IMPLEMENTED IN THIS BRANCH — DEPLOYMENT VALIDATION STILL REQUIRED
 
 - Transactional Supabase close-draw RPC with deterministic snapshot and retry/concurrency controls.
 - Restart-safe coordinator records and idempotent request/fulfillment/resolution transitions.
-- Configurable World Chain Sepolia Witnet adapter up to the funded transaction/provider-address boundary.
+- Configurable World Chain Sepolia Witnet reader/coordinator up to the confirmed-address, funded signer, and durable signed-transaction boundary.
 - Canonical privacy-safe public artifacts with local and Supabase publication backends.
 - Minimal non-custodial append-only commitment registry, tests, ABI, and deployment script.
 - Verify Draw V2 component verification and optional anchor checks.
-- Consumer Fairness/Draw Explorer UI and standalone-browser read-only path.
-- Strict `beta` runtime, explicit non-monetary demo mode, reconciliation worker, structured events, `/health`, `/ready`, deployment docs, and canonical beta smoke test.
+- Consumer Fairness/Draw Explorer UI plus browser-readable public verification artifacts that do not create a standalone product path.
+- Strict `beta` runtime, explicit non-monetary demo mode, Supabase reconciliation/publication workers, structured events, `/health`, `/ready`, deployment docs, and canonical beta smoke test.
 
 ## BLOCKED EXTERNALLY
 
@@ -43,4 +43,4 @@ The beta proves the product and trust loop without representing simulated accoun
 
 - World’s current primary documentation lists Witnet randomness support for World Chain and World Chain Sepolia, and identifies Sepolia as chain ID `4801` with the public Alchemy RPC. Witnet documents asynchronous paid `randomize()` requests and block-bound `fetchRandomnessAfter`/status methods.
 - Witnet’s current randomness address page does not visibly publish a World Chain-specific address in its rendered address list. The beta therefore requires an explicit configured address and validates its bytecode/network rather than assuming a copied multi-chain address.
-- World ID 4.x uses `@worldcoin/idkit-core` for browser/vanilla flows. Inside World App native transport is used; outside it the connector URL supports QR/deep-link completion. The existing server RP-signature and `/api/v4/verify/{rp_id}` path remains valid for both environments.
+- World ID 4.x and all authenticated product interactions remain inside World App. Browser access is limited to public, read-only fairness artifacts and Verify Draw.

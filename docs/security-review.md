@@ -26,7 +26,7 @@
 
 1. Legal classification, official rules, eligibility, age/geography controls, responsible-play controls, sanctions/AML review, privacy review, and jurisdiction-specific approvals.
 2. Independent security review of authentication, payment reconciliation, Postgres functions, RLS, deployment secrets, dependencies, abuse controls, and incident response.
-3. Reconciliation worker for pending/late/reorged payments, durable observability, alerting, backups, and operator runbooks.
+3. Deployment-validation, alerting, backups, and operator runbooks for the implemented durable pending/late payment reconciliation worker.
 4. Audited custody/vault and payout architecture with solvency controls; accounting pool numbers must not imply funded reserves.
 5. Public, auditable randomness and signed/immutable draw inputs; documented rerun and dispute procedures.
 6. Idempotent claim/payout state machine, treasury authorization controls, withdrawal security, and recovery paths.
@@ -52,12 +52,12 @@ This repository is a technical MVP, not authorization to operate a lottery, gamb
 
 ### Findings and current limitations
 
-- **No production randomness provider:** the `VerifiableDrawRandomnessProvider` boundary deliberately throws. Provider selection requires current World Chain/provider documentation, proof verification rules, replay/finality handling, outage policy, and an independent review.
+- **Live randomness remains externally blocked:** the pinned Witnet World Chain Sepolia reader, request binding, proof metadata, durable coordinator, and replay controls are implemented. A live signed request still requires a confirmed current deployment address, funded signer, durable pre-broadcast transaction journal, and independent review.
 - **No custody:** `economic_vaults` are modeled accounting records, not on-chain balances. They must not be displayed as proof of funded reserves.
 - **No automated payout:** resolution changes payout state to pending only. Settlement before finality is not implemented, and no ordinary prize can be paid by this foundation.
-- **No production draw coordinator:** mutating draw operations are library-only in Phase 3A. Public HTTP routes are read-only; production Supabase closure/randomness workers remain Phase 3B work.
+- **Coordinator deployment is not validated:** service-role Supabase closure/prepare/bind/fulfill/resolve RPCs and a restart-safe coordinator are implemented, but have not run against a provisioned beta project and live provider.
 - **Service-role trust remains:** direct database service-role misuse is outside the application state-machine boundary. Before testnet automation, use narrowly scoped database functions/roles, append-only audit events, multisig/operator separation, and independent reconciliation.
-- **Manifest publication remains local/database modeled:** immutable external storage, durable public availability, timestamp/block anchoring, and signed publication are not yet implemented.
+- **Manifest publication needs environment validation:** canonical full-artifact hashing, immutable database state, a Supabase Storage publisher, retry worker, and stable public API are implemented. Bucket policy/CDN availability and observed on-chain anchoring remain external deployment tasks.
 - **Randomness availability policy is open:** retry, provider failure, late fulfillment, and draw cancellation rules must be published before real draws. A fulfilled request must never be substituted merely because its result is inconvenient.
 - **Tier economics are not finalized:** scopes are explicit and unweighted, but founder/product/legal decisions must define which tiers enter Global, annual, and exclusive draws.
 - **Renewal funding is unresolved:** evaluate Growth funding versus a dedicated Renewal Reserve. Do not activate non-zero credits until a funded source and accounting treatment are approved.

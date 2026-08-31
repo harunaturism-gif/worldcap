@@ -1,6 +1,8 @@
 # WorldCAP
 
-A clean World App vertical slice for verified-human prize titles. World ID authenticates the user; a backend-created payment intent binds quantity, amount, WLD recipient, campaign, and a unique reference; the backend verifies payment before atomically issuing individually identifiable titles and accounting the 60/10/20/10 allocation.
+WorldCAP is a World App Mini App for verified-human digital prize titles.
+
+It is exclusively a World App product, runs on World Chain, and is WLD-native. Verified humans acquire persistent numbered titles, reveal a physical scratch surface, remain eligible for published draws, and can independently reproduce draw results from privacy-safe public artifacts. Browser-readable fairness artifacts are verification surfaces only—not a separate consumer product, wallet path, or payment rail.
 
 [`WORLDCAP_PRODUCT_SPEC_v0.1.md`](./WORLDCAP_PRODUCT_SPEC_v0.1.md) is the living product source of truth. Implementation and roadmap decisions should be reconciled against it while preserving verified security invariants and clearly labeling capabilities that are not live.
 
@@ -39,6 +41,7 @@ npm run build
 | `WORLDPRIZE_ENV` | Persistence | Payment behavior |
 |---|---|---|
 | `development` | memory only when `ENABLE_DEV_MOCK_PERSISTENCE=true` | fake only when `ENABLE_DEV_FAKE_PAYMENTS=true` |
+| `beta` | Supabase required | real World Pay verification or deliberately enabled, clearly labeled non-monetary demo acquisition |
 | `testnet` | Supabase required | disabled fail-closed; World Pay currently has no testnet payment rail |
 | `production` | Supabase required | MiniKit WLD payment plus Developer Portal server verification |
 
@@ -64,6 +67,13 @@ Apply migrations in order:
 2. `supabase/migrations/202608310001_phase2_economic_vertical_slice.sql`
 3. `supabase/migrations/202608310002_product_spec_reconciliation.sql`
 4. `supabase/migrations/202608310003_phase3_trust_foundation.sql`
+5. `supabase/migrations/202609010001_atomic_draw_closure.sql`
+6. `supabase/migrations/202609010002_durable_draw_coordinator.sql`
+7. `supabase/migrations/202609010003_beta_demo_purchase_mode.sql`
+8. `supabase/migrations/202609010004_payment_reconciliation.sql`
+9. `supabase/migrations/202609010005_randomness_fulfillment_hardening.sql`
+10. `supabase/migrations/202609010006_public_artifact_v2.sql`
+11. `supabase/migrations/202609010007_external_randomness_proof.sql`
 
 The second migration adds `numeric(78,0)` WLD base-unit columns, purchase intents, unique payment identifiers, scratch state, simulated liability classification, indexes, active campaign/game/draw seed data, and three service-role-only RPCs:
 
@@ -88,3 +98,5 @@ The browser never accesses Supabase directly. RLS remains enabled and the RPCs a
 - Social activity avoids ownership lists and balance disclosure. Member-authored posts are still local-session MVP UI.
 
 See `docs/security-review.md` for the remaining production gates.
+
+The closed-beta architecture, exact deployment checklist, canonical smoke test, and accepted World App-only decision are documented in `docs/beta-technical-plan.md`, `docs/beta-deployment.md`, `docs/beta-smoke-test.md`, and `docs/adr-world-app-only.md`.

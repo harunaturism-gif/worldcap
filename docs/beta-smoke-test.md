@@ -18,5 +18,6 @@ The automated version is `server/betaSmoke.test.ts`. Run `npm test` and then per
 14. If a registry is actually deployed, compare its anchor to the published commitment. Do not mark anchor verification required without observed deployment evidence.
 15. Confirm Wallet shows verified spend separately from demo acquisition volume and simulated liabilities.
 16. Confirm title archive/renewal data remains unchanged and renewal liability is not spendable value.
+17. Sign out and open the browser-readable verification surface. Confirm the same draw can be reproduced, while purchase, wallet, ownership, scratch, and collection actions remain unavailable outside World App.
 
 Acceptance requires a clean full verification suite and an operator record of the draw ID, manifest hash, request ID, seed/proof reference, winner, and verification response.

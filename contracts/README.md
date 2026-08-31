@@ -11,3 +11,5 @@ $env:ANCHOR_AUTHORITY='0x...'
 ```
 
 Run deployment only from a secure operator environment. This repository contains no private key and claims no deployed address.
+
+The deployment script queries the configured RPC and refuses to deploy unless it reports chain ID `4801`. Foundry is still required locally; no deployment has been attempted from an environment without it.

@@ -40,7 +40,7 @@ The legacy draw schema only pre-created `draw_entries` while a draw was `schedul
 - On-chain custody, Allocation Router contracts, automated settlement, and prize payouts.
 - Final tier participation, scratch odds/prizes, renewal credit values, and renewal funding source.
 - Public Draw Explorer polish and public manifest storage/CDN strategy.
-- Payment-rail refactor: the existing verified World Pay flow remains safer to preserve; standalone web/on-chain rail requirements should be designed with the eventual custody architecture.
+- World Pay remains the sole production purchase rail through World App. No alternate consumer rail is planned.
 
 ## Protocol decisions
 
@@ -52,6 +52,6 @@ The legacy draw schema only pre-created `draw_entries` while a draw was `schedul
 - Monthly/annual Prize Vault liabilities cannot exceed their own funding. Platform and Growth vaults never count as prize funding.
 - Renewal liability is non-spendable, separately recorded, and has `UNDECIDED` funding until a founder-approved rule names a funded reserve. TODO: evaluate Growth versus a dedicated Renewal Reserve without changing 60/10/20/10.
 
-## Standalone-web compatibility note
+## Distribution boundary
 
-A future `PaymentRail` may expose intent creation, user authorization, and server verification for `WorldPayRail` and `OnchainPurchaseRail`. It must preserve the current backend checks (asset, amount, recipient, reference, chain, finality, payer, replay protection, and atomic issuance). Phase 3A intentionally does not wrap or rewrite the verified Phase 2 payment path.
+Authenticated ownership, purchase, scratch, collection, and wallet interactions are World App-only. Public manifests and Verify Draw may be fetched in a browser solely so third parties can reproduce fairness results.
