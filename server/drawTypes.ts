@@ -66,6 +66,7 @@ export interface DrawFairnessResponse {
   snapshotCommitment: string | null;
   manifestVersion: string;
   randomnessProvider: string | null;
+  randomnessRequestId: string | null;
   randomnessSeed: string | null;
   algorithmVersion: string;
   winningIndex: string | null;

@@ -1,5 +1,6 @@
 import type { DrawManifest, DrawRecord } from './drawTypes.js';
 import { verifyDraw } from './verifyDraw.js';
+import type { RandomnessEvidence } from './verifyDrawV2.js';
 
 export interface DrawRepository {
   create(draw: DrawRecord): Promise<DrawRecord>;
@@ -7,6 +8,7 @@ export interface DrawRepository {
   update(draw: DrawRecord): Promise<DrawRecord>;
   saveManifest(drawId: string, manifest: DrawManifest): Promise<void>;
   getManifest(drawId: string): Promise<DrawManifest | null>;
+  getRandomnessEvidence(drawId: string): Promise<RandomnessEvidence | null>;
 }
 
 function cloneDraw(draw: DrawRecord): DrawRecord {
@@ -60,5 +62,11 @@ export class DevelopmentMemoryDrawRepository implements DrawRepository {
   async getManifest(drawId: string): Promise<DrawManifest | null> {
     const manifest = this.manifests.get(drawId);
     return manifest ? cloneManifest(manifest) : null;
+  }
+
+  async getRandomnessEvidence(drawId: string): Promise<RandomnessEvidence | null> {
+    const draw = this.draws.get(drawId);
+    if (!draw?.randomnessRequestId || !draw.randomnessProvider) return null;
+    return { requestId: draw.randomnessRequestId, provider: draw.randomnessProvider, network: 'local-test', independentlyVerified: draw.status === 'RESOLVED' || draw.status === 'SETTLED' };
   }
 }

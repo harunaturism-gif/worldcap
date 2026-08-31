@@ -57,6 +57,13 @@ class SupabaseReadOnlyDrawRepository implements DrawRepository {
   async update(): Promise<DrawRecord> { throw new Error('production_draw_mutation_worker_not_configured'); }
   async saveManifest(): Promise<void> { throw new Error('production_draw_mutation_worker_not_configured'); }
 
+  async getRandomnessEvidence(drawId: string) {
+    const { data, error } = await this.client.from('draw_coordinator_jobs').select('provider,network,provider_request_id,status,verification_metadata').eq('draw_id', drawId).maybeSingle();
+    if (error) throw new Error('draw_randomness_evidence_read_failed');
+    if (!data) return null;
+    return { requestId: nullableString(data.provider_request_id), provider: stringValue(data.provider, 'provider'), network: stringValue(data.network, 'network'), independentlyVerified: data.status === 'resolved' && typeof data.verification_metadata === 'object' && data.verification_metadata !== null };
+  }
+
   async get(drawId: string): Promise<DrawRecord | null> {
     const { data, error } = await this.client.from('draws').select('id,campaign_id,eligibility_scope,allowed_tier_codes,opens_at,closes_at,status,eligible_title_count,eligibility_commitment,manifest_version,algorithm_version,randomness_provider,randomness_request_id,randomness_seed,winning_index,winning_title_id,finalized_at,payout_status').eq('id', drawId).maybeSingle();
     if (error) throw new Error('draw_read_failed');

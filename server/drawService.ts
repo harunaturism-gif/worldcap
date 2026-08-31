@@ -7,6 +7,9 @@ import {
   type DrawFairnessResponse, type DrawManifest, type DrawRecord,
 } from './drawTypes.js';
 import { verifyDraw } from './verifyDraw.js';
+import { createPublicDrawArtifact, type PublicDrawArtifact } from './publicManifest.js';
+import { verifyDrawV2, type DrawVerificationV2 } from './verifyDrawV2.js';
+import { operationalLog } from './structuredLogger.js';
 
 function tierAllowed(draw: DrawRecord, title: DrawEligibilityCandidate): boolean {
   if (!draw.allowedTierCodes.includes(title.tierCode)) return false;
@@ -75,6 +78,7 @@ export class DrawService {
       draw.finalizedAt = closedAt;
       await this.repository.update(draw);
       this.candidates.delete(drawId);
+      operationalLog('draw_closure', { drawId, status: 'closed' });
       return manifest;
     });
   }
@@ -87,7 +91,7 @@ export class DrawService {
     draw.status = 'RANDOMNESS_PENDING';
     draw.randomnessProvider = request.provider;
     draw.randomnessRequestId = request.requestId;
-    return this.repository.update(draw);
+    const updated = await this.repository.update(draw); operationalLog('randomness_request', { drawId, requestId: request.requestId, provider: request.provider }); return updated;
   }
 
   async resolveDraw(drawId: string): Promise<DrawRecord> {
@@ -105,10 +109,23 @@ export class DrawService {
     draw.winningTitleId = winner.titleId;
     draw.status = 'RESOLVED';
     draw.payoutStatus = 'PENDING';
-    return this.repository.update(draw);
+    const updated = await this.repository.update(draw); operationalLog('randomness_fulfillment', { drawId, requestId: result.requestId, provider: result.provider }); operationalLog('draw_resolution', { drawId, status: 'resolved' }); return updated;
   }
 
   async getManifest(drawId: string): Promise<DrawManifest | null> { return this.repository.getManifest(drawId); }
+
+  async getPublicArtifact(drawId: string): Promise<PublicDrawArtifact | null> {
+    const draw = await this.repository.get(drawId);
+    const manifest = await this.repository.getManifest(drawId);
+    return draw && manifest && draw.finalizedAt ? createPublicDrawArtifact(draw, manifest) : null;
+  }
+
+  async verifyPublicDraw(drawId: string): Promise<DrawVerificationV2 | null> {
+    const draw = await this.repository.get(drawId); const artifact = await this.getPublicArtifact(drawId);
+    if (!draw || !artifact) return null;
+    const randomness = await this.repository.getRandomnessEvidence(drawId) ?? { requestId: null, provider: null, network: null, independentlyVerified: false };
+    return verifyDrawV2({ draw, artifact, randomness });
+  }
 
   async getFairness(drawId: string): Promise<DrawFairnessResponse | null> {
     const draw = await this.repository.get(drawId);
@@ -120,7 +137,7 @@ export class DrawService {
       drawId: draw.id, status: draw.status, eligibilityScope: draw.eligibilityScope,
       allowedTierCodes: [...draw.allowedTierCodes], eligibleCount: draw.eligibleTitleCount.toString(),
       snapshotCommitment: draw.eligibilityCommitment, manifestVersion: draw.manifestVersion,
-      randomnessProvider: draw.randomnessProvider, randomnessSeed: draw.randomnessSeed,
+      randomnessProvider: draw.randomnessProvider, randomnessRequestId: draw.randomnessRequestId, randomnessSeed: draw.randomnessSeed,
       algorithmVersion: draw.algorithmVersion, winningIndex: draw.winningIndex?.toString() ?? null,
       winningTitle, verificationStatus: draw.status === 'RESOLVED' ? (verification?.verified ? 'VERIFIED' : 'FAILED') : draw.status === 'RANDOMNESS_PENDING' ? 'PENDING' : 'NOT_READY',
       payoutStatus: draw.payoutStatus,
