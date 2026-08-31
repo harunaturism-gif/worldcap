@@ -71,3 +71,15 @@ This repository is a technical MVP, not authorization to operate a lottery, gamb
 4. Publish manifests and algorithm source independently, anchor the commitment, and test the public verifier against production-shaped fixtures.
 5. Design audited testnet custody/Allocation Router and liability-commit APIs before representing any vault as funded.
 6. Add settlement state-machine tests proving no payout before a verified resolved draw and no double settlement.
+# Closed beta trust addendum (2026-09-01)
+
+- Atomic closure is service-role-only, row-locks the draw/campaign/tier scope, applies campaign/cutoff/tier rules, deterministically orders entries, freezes the root/count, and is retry-safe. Browser mutation is revoked.
+- Durable coordinator records bind provider, network, request ID, seed, timestamps, retries, and algorithm. Request/seed substitution and replay are rejected; SQL resolves the index and accepts no winner input.
+- Winner selection uses deterministic rejection sampling, not naive modulo, with bounded retries and explicit zero-count rejection. Multi-winner derivation prevents duplicates.
+- Public artifacts contain title identifiers/serial/tier/campaign only. They exclude internal owner IDs, wallets, World ID material, and purchase data.
+- Verify Draw V2 recomputes the manifest, supported algorithm, randomness binding, index, and title. It does not treat equality with a stored winner as proof.
+- Beta runtime rejects development auth/persistence/payment/randomness switches. Demo acquisition is explicit, non-monetary, non-spendable, and forbidden in production.
+- Payment reconciliation is durable/idempotent and still delegates issuance to the existing transaction-consuming atomic purchase function.
+- The commitment registry is append-only and non-custodial. No deployment or live anchor is claimed.
+- Remaining external risks: confirm Witnet’s current World Chain Sepolia deployment and bytecode, implement and review secure transaction signing/journaling, deploy/verify the registry, provision Supabase, and complete independent review.
+- Remaining production blockers: legal/compliance authorization, custody/payout design and audit, funded liability controls, incident response, rate/abuse testing, and operational key management.
