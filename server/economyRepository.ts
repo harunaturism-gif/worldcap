@@ -7,6 +7,7 @@ import {
   type ScratchTierConfig, type TitleRecord, type TitleTierRecord, type VerifiedPayment,
 } from './economyTypes.js';
 import { allocateWld } from './tokenUnits.js';
+import { assertGrossAllocation, assertScratchPreservesTitle, assertSimulatedWinningsNonSpendable } from './protocolInvariants.js';
 
 export interface EconomyRepository {
   createPurchaseIntent(user: InternalUser, campaignId: string, tierId: string, quantity: number, recipient: string): Promise<PurchaseIntentRecord>;
@@ -119,7 +120,9 @@ export class DevelopmentMemoryEconomyRepository implements EconomyRepository {
         ['monthly_prize_pool', 60, parts.monthly], ['annual_jackpot', 10, parts.annual],
         ['platform_operations', 20, parts.platform], ['commercial_growth', 10, parts.commercial],
       ];
-      this.allocations.push(...rows.map(([bucket, percentage, amountUnits]) => ({ id: randomUUID(), purchaseId: purchase.id, bucket, percentage, amountUnits })));
+      const allocations: AllocationRecord[] = rows.map(([bucket, percentage, amountUnits]) => ({ id: randomUUID(), purchaseId: purchase.id, bucket, percentage, amountUnits }));
+      assertGrossAllocation(intent.totalUnits, allocations);
+      this.allocations.push(...allocations);
       this.ledger.unshift({ id: randomUUID(), userId: user.id, classification: 'verified_purchase', direction: 'debit', amountUnits: intent.totalUnits, spendable: true, referenceId: purchase.id, description: `${intent.quantity} verified ${ACTIVE_CAMPAIGN.monthLabel} title${intent.quantity === 1 ? '' : 's'}`, createdAt });
       this.activity.unshift({ id: randomUUID(), type: 'purchase_activity', body: `${user.username} added ${intent.quantity} title${intent.quantity === 1 ? '' : 's'} to the draw.`, createdAt });
       this.purchases.set(purchase.id, purchase); this.transactionIds.set(payment.transactionId, purchase.id);
@@ -160,13 +163,17 @@ export class DevelopmentMemoryEconomyRepository implements EconomyRepository {
         if (!existing) throw new Error('scratch_invariant_failed');
         return { title, result: existing, replayed: true };
       }
+      const before = { currentOwnerId: title.currentOwnerId, drawEligible: title.drawEligible };
       const result: ScratchResultRecord = { id: randomUUID(), titleId, userId: user.id, prizeUnits, simulated: true, provider, randomnessReference, revealedAt: new Date().toISOString() };
       title.scratchStatus = 'revealed'; title.scratchResultId = result.id;
       this.scratchResults.set(result.id, result);
       if (prizeUnits > 0n) {
-        this.ledger.unshift({ id: randomUUID(), userId: user.id, classification: 'simulated_scratch_prize', direction: 'credit', amountUnits: prizeUnits, spendable: false, referenceId: result.id, description: `Simulated scratch result · ${title.serial}`, createdAt: result.revealedAt });
+        const ledgerEntry: LedgerRecord = { id: randomUUID(), userId: user.id, classification: 'simulated_scratch_prize', direction: 'credit', amountUnits: prizeUnits, spendable: false, referenceId: result.id, description: `Simulated scratch result · ${title.serial}`, createdAt: result.revealedAt };
+        assertSimulatedWinningsNonSpendable(ledgerEntry);
+        this.ledger.unshift(ledgerEntry);
         this.activity.unshift({ id: randomUUID(), type: 'winner_activity', body: `${user.username} revealed a simulated scratch prize.`, createdAt: result.revealedAt });
       }
+      assertScratchPreservesTitle(before, title);
       return { title, result, replayed: false };
     });
   }
