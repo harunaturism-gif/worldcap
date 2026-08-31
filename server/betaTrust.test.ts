@@ -5,7 +5,7 @@ import { LocalDeterministicDrawRandomnessProvider, type DrawRandomnessProvider }
 import { DevelopmentMemoryDrawRepository } from './drawRepository.js';
 import { DrawService } from './drawService.js';
 import type { DrawEligibilityCandidate } from './drawTypes.js';
-import { computeArtifactContentHash, createPublicDrawArtifact, serializePublicDrawArtifact } from './publicManifest.js';
+import { computeArtifactContentHash, createPublicDrawArtifact, LocalMemoryManifestPublisher, parsePublicDrawArtifact, serializePublicDrawArtifact } from './publicManifest.js';
 import { verifyDrawV2 } from './verifyDrawV2.js';
 import {
   createWitnetConfig, PinnedWitnetChainAdapter, WitnetDrawRandomnessProvider,
@@ -83,6 +83,11 @@ describe('closed beta trust vertical', () => {
     assert.equal(serializePublicDrawArtifact(first).includes(title.currentOwnerId), false);
     const tampered = { ...first, entries: [{ ...first.entries[0]!, serial: 'SUBSTITUTED-SERIAL' }] };
     assert.notEqual(computeArtifactContentHash(tampered), first.artifactContentHash);
+    assert.equal(parsePublicDrawArtifact(JSON.parse(serializePublicDrawArtifact(first))).artifactContentHash, first.artifactContentHash);
+    assert.throws(() => parsePublicDrawArtifact({ ...first, entries: tampered.entries }), /public_artifact_hash_mismatch/);
+    const publisher = new LocalMemoryManifestPublisher();
+    assert.equal((await publisher.publish(first)).replayed, false);
+    assert.equal((await publisher.publish(first)).replayed, true);
   });
 
   it('survives coordinator restart without a duplicate randomness request', async () => {

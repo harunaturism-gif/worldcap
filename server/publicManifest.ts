@@ -61,6 +61,30 @@ export function serializePublicDrawArtifact(artifact: PublicDrawArtifact): strin
   });
 }
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function parsePublicDrawArtifact(value: unknown): PublicDrawArtifact {
+  if (!isObject(value) || value.schemaVersion !== PUBLIC_DRAW_SCHEMA_VERSION || !Array.isArray(value.entries)) throw new Error('public_artifact_invalid');
+  const required = ['algorithmVersion', 'drawId', 'campaignId', 'scope', 'closedAt', 'eligibleCount', 'manifestRoot', 'artifactContentHash'] as const;
+  for (const field of required) if (typeof value[field] !== 'string') throw new Error('public_artifact_invalid');
+  const entries = value.entries.map((item) => {
+    if (!isObject(item)) throw new Error('public_artifact_invalid');
+    for (const field of ['index', 'titleId', 'serial', 'tier', 'campaignId'] as const) if (typeof item[field] !== 'string') throw new Error('public_artifact_invalid');
+    return Object.freeze({ index: item.index as string, titleId: item.titleId as string, serial: item.serial as string, tier: item.tier as string, campaignId: item.campaignId as string });
+  });
+  const artifact = Object.freeze({
+    schemaVersion: PUBLIC_DRAW_SCHEMA_VERSION,
+    algorithmVersion: value.algorithmVersion as string, drawId: value.drawId as string,
+    campaignId: value.campaignId as string, scope: value.scope as string, closedAt: value.closedAt as string,
+    eligibleCount: value.eligibleCount as string, manifestRoot: value.manifestRoot as string,
+    artifactContentHash: value.artifactContentHash as string, entries: Object.freeze(entries),
+  });
+  if (artifact.artifactContentHash !== computeArtifactContentHash(artifact)) throw new Error('public_artifact_hash_mismatch');
+  return artifact;
+}
+
 export interface ManifestPublisher {
   publish(artifact: PublicDrawArtifact): Promise<{ uri: string; replayed: boolean }>;
   get(drawId: string): Promise<PublicDrawArtifact | null>;
