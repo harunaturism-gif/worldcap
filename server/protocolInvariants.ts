@@ -27,6 +27,9 @@ export function assertSimulatedWinningsNonSpendable(entry: Pick<LedgerRecord, 'c
   if (entry.classification === 'simulated_scratch_prize' && entry.spendable) throw new Error('simulated_winnings_cannot_be_spendable');
 }
 
+export function assertOriginalBuyerImmutable(existingBuyerId: string, proposedBuyerId: string): void {
+  if (existingBuyerId !== proposedBuyerId) throw new Error('original_buyer_immutable');
+}
 
 export function assertScratchPreservesTitle(before: { currentOwnerId: string; drawEligible: boolean }, after: { currentOwnerId: string; drawEligible: boolean }): void {
   if (before.currentOwnerId !== after.currentOwnerId) throw new Error('scratch_changed_current_owner');

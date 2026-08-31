@@ -1,4 +1,3 @@
-import { ECONOMIC_ALLOCATION } from "./protocolInvariants.js";
 export const WLD_DECIMALS = 18;
 export const WLD_SCALE = 10n ** BigInt(WLD_DECIMALS);
 
@@ -24,4 +23,5 @@ export function allocateWld(totalUnits: bigint) {
   const commercial = totalUnits - monthly - annual - platform;
   return { monthly, annual, platform, commercial };
 }
+import { ECONOMIC_ALLOCATION } from './protocolInvariants.js';
 
