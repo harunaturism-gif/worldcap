@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
 /// @notice Append-only, non-custodial registry for closed WorldCAP draw inputs.

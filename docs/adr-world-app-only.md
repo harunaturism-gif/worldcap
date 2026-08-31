@@ -1,6 +1,6 @@
 # ADR: World App Only
 
-**Date**: 2026-09-01
+**Date**: 2026-08-31
 **Status**: Accepted
 
 ## Context

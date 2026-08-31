@@ -8,7 +8,7 @@ WorldCAP is a World App Mini App for verified-human digital prize titles.
 WorldCAP issues persistent digital titles to humans verified by World ID. Titles are purchased with WLD on World Chain. These titles offer a scratch/reveal experience and act as entries into transparent monthly draws with independently verifiable fairness.
 
 ## Why World
-By using World ID for verified-human identity, World Pay for transactions, and World Chain for infrastructure, WorldCAP ensures a WLD-native, provably fair prize economy.
+By using World ID for verified-human identity, World Pay for transactions, and World Chain for infrastructure, WorldCAP is designed to provide an independently verifiable prize economy.
 
 ## Core product loop
 1. **Verify**: Connect via World ID.
@@ -24,7 +24,7 @@ By using World ID for verified-human identity, World Pay for transactions, and W
 - **NOT LIVE YET**: Production randomness, custody, and independent audits remain blocked prior to real-money operation.
 
 ## Provable fairness
-WorldCAP's foundation ensures transparent monthly draws and independently verifiable fairness. Admins cannot choose or alter winners after draw closure. Every draw result is designed to be independently reproducible from public data and verifiable public randomness.
+WorldCAP's foundation is designed to enable transparent monthly draws and independently verifiable fairness. The design intent is that administrators cannot choose or alter winners after draw closure. Every draw result is intended to be independently reproducible from public data and verifiable public randomness once production deployment and independent audit are complete.
 
 ## Architecture
 WorldCAP is exclusively a **World App Mini App** operating on **World Chain**. The backend manages authenticated sessions, verifies MiniKit WLD payments against Developer Portal servers, and interacts with a secure Supabase backend (where browser access is explicitly restricted).
@@ -36,7 +36,7 @@ WorldCAP is exclusively a **World App Mini App** operating on **World Chain**. T
 - **Simulated outcomes:** Scratch uses cryptographic randomness but is explicitly simulated. Winnings are recorded as non-spendable liabilities.
 
 ## Development status / non-production disclaimer
-This repository is a technical MVP. **Do not run in production.** It is not an authorization to operate a lottery, gambling, sweepstakes, or real-money prize product. Further legal, compliance, and independent security reviews are strictly required.
+This repository is a technical MVP. **Do not run in production.** It is not an authorization to operate a lottery, gambling, sweepstakes, or real-money prize product. Applicable KYC/AML, age, geography and other controls must be implemented where required by target-market regulation, alongside independent security reviews, before real-money operation.
 
 ---
 
