@@ -115,4 +115,13 @@ describe('closed beta trust vertical', () => {
     registry.anchor('beta-draw', `sha256:${'1'.repeat(64)}`, 1n, 'worldcap-draw-v1');
     assert.throws(() => registry.anchor('beta-draw', `sha256:${'2'.repeat(64)}`, 2n, 'worldcap-draw-v1'), /draw_anchor_immutable/);
   });
+
+  it('rejects replayed randomness persistence and provider substitution', async () => {
+    const store = new MemoryDrawCoordinatorStore();
+    let job = await store.getOrCreate('replay-draw', 'witnet-randomness-v1', 'world-chain-sepolia', 'worldcap-draw-v1');
+    await assert.rejects(store.getOrCreate('replay-draw', 'other-provider', 'world-chain-sepolia', 'worldcap-draw-v1'), /coordinator_provider_substitution/);
+    job = await store.save({ ...job, requestId: 'witnet:4801:100', status: 'REQUEST_BOUND' });
+    job = await store.save({ ...job, randomnessSeed: `0x${'3'.repeat(64)}`, status: 'RESOLVED' });
+    await assert.rejects(store.save({ ...job }), /randomness_response_replayed/);
+  });
 });

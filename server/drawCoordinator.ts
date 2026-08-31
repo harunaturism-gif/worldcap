@@ -47,7 +47,7 @@ export class MemoryDrawCoordinatorStore implements DrawCoordinatorStore {
     const existing = this.jobs.get(job.drawId);
     if (!existing || existing.id !== job.id || existing.version !== job.version) throw new Error('coordinator_stale_job');
     if (existing.requestId && existing.requestId !== job.requestId) throw new Error('randomness_request_immutable');
-    if (existing.randomnessSeed && existing.randomnessSeed !== job.randomnessSeed) throw new Error('randomness_fulfillment_immutable');
+    if (existing.randomnessSeed && job.randomnessSeed) throw new Error(existing.randomnessSeed === job.randomnessSeed ? 'randomness_response_replayed' : 'randomness_fulfillment_immutable');
     const saved = { ...structuredClone(job), version: job.version + 1 };
     this.jobs.set(job.drawId, saved);
     return structuredClone(saved);
@@ -102,4 +102,3 @@ export class DurableDrawCoordinator {
     }
   }
 }
-

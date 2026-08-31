@@ -6,7 +6,7 @@ This checklist deploys a technical beta. Passing it does **not** authorize real-
 
 1. Deploy the Vite output from `dist/` behind HTTPS.
 2. Deploy `server/dist/index.js` as a long-running Node 20+ service. Expose only HTTPS through the platform ingress.
-3. Provision a dedicated Supabase project and apply every migration in filename order through `202609010004_payment_reconciliation.sql`.
+3. Provision a dedicated Supabase project and apply every migration in filename order through `202609010005_randomness_fulfillment_hardening.sql`.
 4. Confirm browser roles cannot execute service-role RPCs or read private manifest/coordinator tables.
 5. Keep the frontend and API same-origin where possible. If split, set one exact `APP_ORIGIN`; wildcards are rejected.
 
