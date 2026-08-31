@@ -46,8 +46,14 @@ export function createEconomyRouter(service: EconomyService, sessionConfig: AppS
     const reference = Array.isArray(request.params.reference) ? request.params.reference[0] : request.params.reference;
     const transactionId = request.body?.transactionId;
     if (!reference || !UUID_PATTERN.test(reference) || typeof transactionId !== 'string' || !TRANSACTION_ID_PATTERN.test(transactionId)) return response.status(400).json({ error: 'Invalid payment confirmation' });
-    try { return response.json(safeJson(await service.confirmPurchase(userFor(request), reference, transactionId))); }
-    catch (error) { return response.status(errorStatus(error instanceof Error ? error.message : '')).json({ error: error instanceof Error ? error.message : 'Payment confirmation rejected' }); }
+    try {
+      return response.json(safeJson(await service.confirmPurchase(userFor(request), reference, transactionId)));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      return response.status(errorStatus(message)).json({
+        error: error instanceof Error ? error.message : 'Payment confirmation rejected'
+      });
+    }
   });
 
   router.post('/titles/:titleId/scratch', createFixedWindowRateLimiter(15, 60_000), async (request, response) => {
