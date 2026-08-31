@@ -61,7 +61,9 @@ class SupabaseReadOnlyDrawRepository implements DrawRepository {
     const { data, error } = await this.client.from('draw_coordinator_jobs').select('provider,network,provider_request_id,status,verification_metadata').eq('draw_id', drawId).maybeSingle();
     if (error) throw new Error('draw_randomness_evidence_read_failed');
     if (!data) return null;
-    return { requestId: nullableString(data.provider_request_id), provider: stringValue(data.provider, 'provider'), network: stringValue(data.network, 'network'), independentlyVerified: data.status === 'resolved' && typeof data.verification_metadata === 'object' && data.verification_metadata !== null };
+    const metadata = typeof data.verification_metadata === 'object' && data.verification_metadata !== null && !Array.isArray(data.verification_metadata)
+      ? data.verification_metadata as Record<string, unknown> : {};
+    return { requestId: nullableString(data.provider_request_id), provider: stringValue(data.provider, 'provider'), network: stringValue(data.network, 'network'), independentlyVerified: data.status === 'resolved' && metadata.external_proof_verified === true };
   }
 
   async get(drawId: string): Promise<DrawRecord | null> {

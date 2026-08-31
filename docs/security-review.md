@@ -82,4 +82,5 @@ This repository is a technical MVP, not authorization to operate a lottery, gamb
 - Payment reconciliation is durable/idempotent and still delegates issuance to the existing transaction-consuming atomic purchase function.
 - The commitment registry is append-only and non-custodial. No deployment or live anchor is claimed.
 - Remaining external risks: confirm Witnet’s current World Chain Sepolia deployment and bytecode, implement and review secure transaction signing/journaling, deploy/verify the registry, provision Supabase, and complete independent review.
+- Supabase verification remains deliberately false unless coordinator metadata contains `external_proof_verified=true`; binding a request and storing a seed alone is not treated as independent provider proof.
 - Remaining production blockers: legal/compliance authorization, custody/payout design and audit, funded liability controls, incident response, rate/abuse testing, and operational key management.
