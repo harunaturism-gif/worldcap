@@ -41,7 +41,10 @@ export class EconomyService {
 
   async snapshot(user: InternalUser) {
     const snapshot = await this.repository.getSnapshot(user.id);
-    const totals = snapshot.allocations.reduce((current, row) => ({ ...current, [row.bucket]: current[row.bucket] + row.amountUnits }), {
+    const totals = snapshot.allocations.reduce((current, row) => {
+      current[row.bucket] += row.amountUnits;
+      return current;
+    }, {
       monthly_prize_pool: 0n, annual_jackpot: 0n, platform_operations: 0n, commercial_growth: 0n,
     });
     return { ...snapshot, pools: totals, paymentMode: this.paymentMode(), paymentDisabledReason: this.paymentMode() === 'disabled' ? 'World Pay does not provide a testnet payment rail.' : null };
