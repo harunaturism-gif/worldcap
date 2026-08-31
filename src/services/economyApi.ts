@@ -20,6 +20,7 @@ export interface PoolDto { monthly_prize_pool: string; annual_jackpot: string; p
 export interface EconomySnapshot { campaign: CampaignDto; titleTiers: TitleTierDto[]; titlesSold: number; purchases: PurchaseDto[]; titles: TitleDto[]; ledger: LedgerDto[]; allocations: AllocationDto[]; scratchResults: ScratchResultDto[]; activity: ActivityDto[]; ownershipEvents: OwnershipEventDto[]; walletAddress: string | null; pools: PoolDto; paymentMode: PaymentMode; paymentDisabledReason: string | null }
 export interface PurchaseIntentDto { reference: string; campaignId: string; tierId: string; quantity: number; recipient: string; token: 'WLD'; tokenAmount: string; description: string; expiresAt: string; paymentMode: PaymentMode }
 export interface PurchaseCompletionDto { purchase: PurchaseDto; titles: TitleDto[]; replayed: boolean }
+export interface PurchasePendingDto { pending: true; reference: string; status: 'pending_reconciliation' }
 export interface ScratchCompletionDto { title: TitleDto; result: ScratchResultDto; replayed: boolean }
 
 function backendUrl(): string { return (import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:3001').replace(/\/$/, ''); }
@@ -47,7 +48,7 @@ export function formatWldUnits(value: string | bigint): string {
 export const EconomyApi = {
   snapshot: () => api<EconomySnapshot>('/api/economy/snapshot'),
 
-  async purchase(quantity: number, tierId = PURPLE_TIER_ID): Promise<PurchaseCompletionDto> {
+  async purchase(quantity: number, tierId = PURPLE_TIER_ID): Promise<PurchaseCompletionDto | PurchasePendingDto> {
     const intent = await api<PurchaseIntentDto>('/api/economy/purchase-intents', {
       method: 'POST', body: JSON.stringify({ campaignId: ACTIVE_CAMPAIGN_ID, tierId, quantity }),
     });
@@ -70,7 +71,7 @@ export const EconomyApi = {
       if (!result.executedWith || !result.data?.transactionId) throw new Error('Payment was not completed');
       transactionId = result.data.transactionId;
     }
-    return api<PurchaseCompletionDto>(`/api/economy/purchase-intents/${encodeURIComponent(intent.reference)}/confirm`, {
+    return api<PurchaseCompletionDto | PurchasePendingDto>(`/api/economy/purchase-intents/${encodeURIComponent(intent.reference)}/confirm`, {
       method: 'POST', body: JSON.stringify({ transactionId }),
     });
   },

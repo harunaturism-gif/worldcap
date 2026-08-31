@@ -28,6 +28,8 @@ import { createRuntimePolicy, validateProviderReadiness } from './runtimePolicy.
 import { createOperationalRouter } from './operationalHealth.js';
 import { operationalLog } from './structuredLogger.js';
 import { createCommitmentAnchorConfig, ViemCommitmentAnchorReader } from './commitmentAnchor.js';
+import { createSupabaseReconciliationStore, PaymentReconciliationWorker } from './paymentReconciliation.js';
+import { createSupabaseManifestPublication } from './supabaseManifestPublisher.js';
 
 const rootEnv = fileURLToPath(new URL('../.env', import.meta.url));
 const modeEnv = fileURLToPath(new URL(`../.env.${process.env.NODE_ENV ?? 'development'}`, import.meta.url));
@@ -69,6 +71,8 @@ if (paymentConfig?.runtime === 'production') paymentVerifier = new WorldDevelope
 const economyService = economyRepository && paymentVerifier && paymentConfig
   ? new EconomyService(economyRepository, paymentVerifier, new LocalRandomnessProvider(), paymentConfig)
   : null;
+const workerId = `worldcap-${process.pid}`;
+const reconciliationStore = persistenceConfig?.mode === 'supabase' ? createSupabaseReconciliationStore(persistenceConfig, workerId) : null;
 let drawRepository: DrawRepository | null = null;
 if (!isProductionProcess) drawRepository = new DevelopmentMemoryDrawRepository();
 if (isProductionProcess && persistenceConfig?.mode === 'supabase') drawRepository = createSupabaseReadOnlyDrawRepository(persistenceConfig);
@@ -178,8 +182,26 @@ app.post('/api/auth/logout', (_request, response) => {
   return response.json({ success: true });
 });
 
-if (economyService && appSessionConfig) app.use('/api/economy', createEconomyRouter(economyService, appSessionConfig));
+if (economyService && appSessionConfig) app.use('/api/economy', createEconomyRouter(economyService, appSessionConfig, reconciliationStore ?? undefined));
 if (drawService) app.use('/api/draws', createDrawFairnessRouter(drawService));
+
+if (process.env.ENABLE_BACKGROUND_WORKERS === 'true') {
+  if (runtimePolicy.runtime === 'development' || !reconciliationStore || !economyRepository || !paymentVerifier || !persistenceConfig || persistenceConfig.mode !== 'supabase') throw new Error('background_workers_not_configured');
+  const reconciliationWorker = new PaymentReconciliationWorker(reconciliationStore, economyRepository, paymentVerifier);
+  const manifestBucket = process.env.PUBLIC_MANIFEST_BUCKET;
+  if (!manifestBucket) throw new Error('public_manifest_bucket_required');
+  const manifestWorker = createSupabaseManifestPublication(persistenceConfig, manifestBucket).worker;
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try { await reconciliationWorker.runOnce(); await manifestWorker.runOnce(); }
+    catch (error) { operationalLog('background_worker_failure', { reason: error instanceof Error ? error.message : 'background_worker_failed' }); }
+    finally { running = false; }
+  };
+  void tick();
+  setInterval(() => void tick(), 15_000).unref();
+}
 
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   void _next;

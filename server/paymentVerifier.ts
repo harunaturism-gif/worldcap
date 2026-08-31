@@ -102,6 +102,9 @@ export class WorldDeveloperPaymentVerifier implements PaymentVerifier {
         timestamp: value.timestamp, tokenAmount: value.token_amount, token: value.token,
         to: value.to, appId: value.app_id,
       };
+    } catch (error) {
+      if (error instanceof Error && (error.message === 'payment_verification_rejected' || error.message === 'invalid_payment_verification_response' || error.message === 'invalid_transaction_id')) throw error;
+      throw new Error(controller.signal.aborted ? 'payment_verification_timeout' : 'payment_verification_unavailable');
     } finally { clearTimeout(timeout); }
   }
 }

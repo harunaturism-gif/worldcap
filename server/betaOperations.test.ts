@@ -17,6 +17,10 @@ test('beta runtime fails closed on development capabilities and missing provider
   const policy = createRuntimePolicy({ NODE_ENV: 'production', WORLDPRIZE_ENV: 'beta', ENABLE_BETA_DEMO_PURCHASES: 'true' });
   assert.equal(policy.allowDemoPurchases, true);
   assert.deepEqual(validateProviderReadiness(policy, {}), ['WORLD_CHAIN_SEPOLIA_RPC_URL', 'WITNET_RANDOMNESS_CONTRACT', 'DRAW_COMMITMENT_REGISTRY_ADDRESS']);
+  assert.deepEqual(validateProviderReadiness(policy, {
+    WORLD_CHAIN_SEPOLIA_RPC_URL: 'https://worldchain-sepolia.g.alchemy.com/public', WITNET_NETWORK: 'world-chain-sepolia', WORLD_CHAIN_CHAIN_ID: '4801',
+    WITNET_RANDOMNESS_CONTRACT: `0x${'0'.repeat(40)}`, DRAW_COMMITMENT_REGISTRY_ADDRESS: `0x${'0'.repeat(40)}`,
+  }), ['WITNET_RANDOMNESS_CONTRACT', 'DRAW_COMMITMENT_REGISTRY_ADDRESS']);
 });
 
 test('demo purchase mode cannot activate in production', () => {

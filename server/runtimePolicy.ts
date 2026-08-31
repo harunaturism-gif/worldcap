@@ -27,9 +27,15 @@ export function createRuntimePolicy(environment: NodeJS.ProcessEnv): RuntimePoli
 export function validateProviderReadiness(policy: RuntimePolicy, environment: NodeJS.ProcessEnv): string[] {
   const missing: string[] = [];
   if (policy.runtime !== 'development') {
-    if (!environment.WORLD_CHAIN_SEPOLIA_RPC_URL) missing.push('WORLD_CHAIN_SEPOLIA_RPC_URL');
-    if (!environment.WITNET_RANDOMNESS_CONTRACT) missing.push('WITNET_RANDOMNESS_CONTRACT');
-    if (!environment.DRAW_COMMITMENT_REGISTRY_ADDRESS) missing.push('DRAW_COMMITMENT_REGISTRY_ADDRESS');
+    const rpc = environment.WORLD_CHAIN_SEPOLIA_RPC_URL;
+    try {
+      const parsed = new URL(rpc ?? '');
+      if (parsed.protocol !== 'https:' || parsed.username || parsed.password) throw new Error();
+    } catch { missing.push('WORLD_CHAIN_SEPOLIA_RPC_URL'); }
+    const validAddress = (value: string | undefined) => Boolean(value && /^0x[0-9a-fA-F]{40}$/.test(value) && !/^0x0{40}$/i.test(value));
+    if (environment.WITNET_NETWORK !== 'world-chain-sepolia' || environment.WORLD_CHAIN_CHAIN_ID !== '4801' || !validAddress(environment.WITNET_RANDOMNESS_CONTRACT)) missing.push('WITNET_RANDOMNESS_CONTRACT');
+    if (!validAddress(environment.DRAW_COMMITMENT_REGISTRY_ADDRESS)) missing.push('DRAW_COMMITMENT_REGISTRY_ADDRESS');
+    if (environment.ENABLE_BACKGROUND_WORKERS === 'true' && !/^[a-z0-9][a-z0-9._-]{2,62}$/.test(environment.PUBLIC_MANIFEST_BUCKET ?? '')) missing.push('PUBLIC_MANIFEST_BUCKET');
   }
   return missing;
 }
