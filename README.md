@@ -18,7 +18,7 @@ Human World was used only as read-only reference code and was not modified.
 
 ## Local development
 
-The checked-in `.env.development` uses an explicit development-only session and fake payment verifier. It exercises the same intent, backend confirmation, atomic issuance, ledger, and scratch paths without claiming an on-chain transfer. Development economic state is intentionally in memory and resets when the API restarts.
+Your ignored local `.env.development` may use an explicit development-only session and fake payment verifier. It exercises the same intent, backend confirmation, atomic issuance, ledger, and scratch paths without claiming an on-chain transfer. Development economic state is intentionally in memory and resets when the API restarts.
 
 ```bash
 npm install
@@ -63,10 +63,13 @@ Apply migrations in order:
 1. `supabase/migrations/202608300001_worldprize_mvp.sql`
 2. `supabase/migrations/202608310001_phase2_economic_vertical_slice.sql`
 3. `supabase/migrations/202608310002_product_spec_reconciliation.sql`
+4. `supabase/migrations/202608310003_phase3_trust_foundation.sql`
 
 The second migration adds `numeric(78,0)` WLD base-unit columns, purchase intents, unique payment identifiers, scratch state, simulated liability classification, indexes, active campaign/game/draw seed data, and three service-role-only RPCs:
 
 The third migration adds campaign-configurable Accessible, Purple, and Gold tiers; original-buyer/current-owner separation; immutable issuance events; independent lifecycle and renewal state; simulated renewal rules; and tier-aware atomic issuance.
+
+The fourth migration adds the Phase 3A trust model: immutable public draw manifests, explicit draw lifecycle and randomness request binding, modeled segregated vaults, finite scratch batches, and explicit renewal funding metadata. It does not deploy custody, a production randomness provider, or payouts. See [`docs/phase3-trust-foundation.md`](./docs/phase3-trust-foundation.md).
 
 - `worldprize_complete_purchase` locks the intent and campaign and atomically creates purchase, titles, ownership, draw entries, wallet metadata, allocation rows, ledger, and activity.
 - `worldprize_reveal_scratch` locks ownership, persists one immutable result, keeps draw eligibility, and records any simulated prize as non-spendable.

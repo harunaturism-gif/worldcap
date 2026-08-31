@@ -3,13 +3,13 @@ import { ACTIVE_CAMPAIGN_ID, MAX_TITLES_PER_PURCHASE, PURPLE_TIER_ID, type Payme
 import type { EconomyRepository } from './economyRepository.js';
 import type { PaymentConfig, PaymentVerifier } from './paymentVerifier.js';
 import { assertVerifiedPayment } from './paymentVerifier.js';
-import type { RandomnessProvider } from './randomness.js';
+import type { ScratchRandomnessProvider } from './randomness.js';
 
 export class EconomyService {
   constructor(
     private readonly repository: EconomyRepository,
     private readonly verifier: PaymentVerifier,
-    private readonly randomness: RandomnessProvider,
+    private readonly randomness: ScratchRandomnessProvider,
     readonly paymentConfig: PaymentConfig,
   ) {}
 
