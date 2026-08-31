@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.28;
 
 import {DrawCommitmentRegistry} from "../src/DrawCommitmentRegistry.sol";
@@ -29,6 +29,20 @@ contract DrawCommitmentRegistryTest {
     function testRejectsUnauthorizedAnchor() public {
         UnauthorizedCaller caller = new UnauthorizedCaller();
         require(!caller.anchor(registry, DRAW, ROOT, ALGORITHM), "unauthorized anchor accepted");
+    }
+
+    function testRejectsInvalidCommitmentsAndMissingDraws() public {
+        (bool zeroDraw,) = address(registry).call(abi.encodeCall(registry.anchorDraw, (bytes32(0), ROOT, 1, ALGORITHM)));
+        (bool zeroRoot,) = address(registry).call(abi.encodeCall(registry.anchorDraw, (DRAW, bytes32(0), 1, ALGORITHM)));
+        (bool zeroCount,) = address(registry).call(abi.encodeCall(registry.anchorDraw, (DRAW, ROOT, 0, ALGORITHM)));
+        (bool zeroAlgorithm,) = address(registry).call(abi.encodeCall(registry.anchorDraw, (DRAW, ROOT, 1, bytes32(0))));
+        (bool missing,) = address(registry).call(abi.encodeCall(registry.getCommitment, (DRAW)));
+        require(!zeroDraw && !zeroRoot && !zeroCount && !zeroAlgorithm && !missing, "invalid commitment accepted");
+    }
+
+    function testRejectsZeroAuthority() public {
+        try new DrawCommitmentRegistry(address(0)) { revert("zero authority accepted"); }
+        catch { }
     }
 
     function testHasNoWinnerOrCustodyInput() public pure {
