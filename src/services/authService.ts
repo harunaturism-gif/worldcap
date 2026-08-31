@@ -44,7 +44,8 @@ async function existingApplicationSession(): Promise<AppSession | null> {
     if (!response.ok) return null;
     const data = await response.json() as { user?: unknown };
     return isAuthUser(data.user) ? { user: data.user, mode: 'world-id' } : null;
-  } catch {
+  } catch (error) {
+    if (import.meta.env.DEV) console.error('AuthService existingApplicationSession error:', error);
     return null;
   }
 }
@@ -60,7 +61,10 @@ export const AuthService = {
         if (!response.ok) return null;
         const data = await response.json() as { user?: unknown };
         return isAuthUser(data.user) ? { user: data.user, mode: 'development' } : null;
-      } catch { return null; }
+      } catch (error) {
+        if (import.meta.env.DEV) console.error('AuthService dev authenticate error:', error);
+        return null;
+      }
     }
 
     const restored = await existingApplicationSession();
@@ -109,12 +113,18 @@ export const AuthService = {
       if (!verifyResponse.ok) return null;
       const authData = await verifyResponse.json() as { verified?: unknown; user?: unknown };
       return authData.verified === true && isAuthUser(authData.user) ? { user: authData.user, mode: 'world-id' } : null;
-    } catch {
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('AuthService authenticate error:', error);
       return null;
     }
   },
 
   async logout(): Promise<void> {
-    try { await fetch(`${backendUrl()}/api/auth/logout`, { method: 'POST', credentials: 'include' }); } catch { /* fail locally */ }
+    try {
+      await fetch(`${backendUrl()}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+    } catch (error) {
+      if (import.meta.env.DEV) console.error('AuthService logout error:', error);
+      /* fail locally */
+    }
   },
 };
