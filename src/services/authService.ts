@@ -115,6 +115,6 @@ export const AuthService = {
   },
 
   async logout(): Promise<void> {
-    try { await fetch(`${backendUrl()}/api/auth/logout`, { method: 'POST', credentials: 'include' }); } catch { /* fail locally */ }
+    try { await fetch(`${backendUrl()}/api/auth/logout`, { method: 'POST', credentials: 'include' }); } catch (error) { console.error('Logout failed:', error); }
   },
 };
