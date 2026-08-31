@@ -41,7 +41,7 @@ function parsePurchase(value: unknown): PurchaseRecord {
   return {
     id: stringField(value, 'id'), reference: stringField(value, 'reference'), userId: stringField(value, 'user_id'), campaignId: stringField(value, 'campaign_id'), tierId: optionalString(value, 'tier_id', PURPLE_TIER_ID),
     quantity: numberField(value, 'quantity'), unitPriceUnits: parseUnitString(value.unit_price_units), totalUnits: parseUnitString(value.total_units),
-    transactionId: stringField(value, 'transaction_id'), transactionHash: stringField(value, 'transaction_hash'), payerAddress: stringField(value, 'payer_address'), createdAt: stringField(value, 'created_at'),
+    transactionId: stringField(value, 'transaction_id'), transactionHash: stringField(value, 'transaction_hash'), payerAddress: stringField(value, 'payer_address'), createdAt: stringField(value, 'created_at'), settlementMode: optionalString(value, 'settlement_mode', 'verified') as PurchaseRecord['settlementMode'],
   };
 }
 
@@ -138,7 +138,8 @@ class SupabaseEconomyRepository implements EconomyRepository {
     return parseScratchTiers(tier.data.scratch_config);
   }
   async completePurchase(user: InternalUser, intent: PurchaseIntentRecord, payment: VerifiedPayment) {
-    const { data, error } = await this.client.rpc('worldprize_complete_purchase', { p_user_id: user.id, p_reference: intent.reference, p_transaction_id: payment.transactionId, p_transaction_hash: payment.transactionHash, p_payer_address: payment.from.toLowerCase() });
+    const rpc = payment.settlementMode === 'demo' ? 'worldcap_complete_demo_purchase' : 'worldprize_complete_purchase';
+    const { data, error } = await this.client.rpc(rpc, { p_user_id: user.id, p_reference: intent.reference, p_transaction_id: payment.transactionId, p_transaction_hash: payment.transactionHash, p_payer_address: payment.from.toLowerCase() });
     if (error || !data) {
       const message = error?.message ?? '';
       if (message.includes('purchase_reference_consumed')) throw new Error('purchase_reference_consumed');
@@ -151,7 +152,11 @@ class SupabaseEconomyRepository implements EconomyRepository {
   async getSnapshot(userId: string) {
     const { data, error } = await this.client.rpc('worldprize_get_snapshot', { p_user_id: userId });
     if (error || !data) throw new Error('snapshot_failed');
-    return parseSnapshot(data);
+    const snapshot = parseSnapshot(data);
+    const demo = await this.client.from('purchases').select('id').eq('user_id', userId).eq('settlement_mode', 'demo');
+    if (demo.error) throw new Error('snapshot_failed');
+    const demoIds = new Set((demo.data ?? []).map((row) => row.id));
+    return { ...snapshot, purchases: snapshot.purchases.map((purchase): PurchaseRecord => demoIds.has(purchase.id) ? { ...purchase, settlementMode: 'demo' } : purchase) };
   }
   async revealScratch(user: InternalUser, titleId: string, prizeUnits: bigint, randomnessReference: string, provider: string) {
     const { data, error } = await this.client.rpc('worldprize_reveal_scratch', { p_user_id: user.id, p_title_id: titleId, p_prize_units: prizeUnits.toString(), p_randomness_reference: randomnessReference, p_provider: provider });

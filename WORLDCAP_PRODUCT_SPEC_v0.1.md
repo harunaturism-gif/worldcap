@@ -5,6 +5,8 @@ Status: Living source of truth
 
 ## Product thesis
 
+WorldCAP is exclusively a World App Mini App. World Chain is the only production chain and the economy is entirely WLD-native. There is no standalone consumer WorldCAP product and no alternative production payment rail. Browser-readable public verification artifacts are allowed but are not a standalone product.
+
 WorldCAP is a World-native consumer app built around digital prize titles.
 
 Core roles:
