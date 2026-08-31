@@ -14,7 +14,7 @@ import { EconomyService } from './economyService.js';
 import { createIdentityRepository, type IdentityRepository } from './identityRepository.js';
 import {
   createPaymentConfig, DevelopmentPaymentVerifier, DisabledPaymentVerifier,
-  WorldDeveloperPaymentVerifier, type PaymentVerifier,
+  WorldDeveloperPaymentVerifier, BetaDemoPaymentVerifier, type PaymentVerifier,
 } from './paymentVerifier.js';
 import { LocalRandomnessProvider } from './randomness.js';
 import { createFixedWindowRateLimiter } from './rateLimit.js';
@@ -24,6 +24,9 @@ import { DevelopmentMemoryDrawRepository, type DrawRepository } from './drawRepo
 import { createDrawFairnessRouter } from './drawRoutes.js';
 import { DrawService } from './drawService.js';
 import { createSupabaseReadOnlyDrawRepository } from './supabaseDrawRepository.js';
+import { createRuntimePolicy, validateProviderReadiness } from './runtimePolicy.js';
+import { createOperationalRouter } from './operationalHealth.js';
+import { operationalLog } from './structuredLogger.js';
 
 const rootEnv = fileURLToPath(new URL('../.env', import.meta.url));
 const modeEnv = fileURLToPath(new URL(`../.env.${process.env.NODE_ENV ?? 'development'}`, import.meta.url));
@@ -38,6 +41,7 @@ const worldIdConfig = createWorldIdConfig(process.env);
 const appSessionConfig = createAppSessionConfig(process.env);
 const persistenceConfig = createPersistenceConfig(process.env);
 const paymentConfig = createPaymentConfig(process.env);
+const runtimePolicy = createRuntimePolicy(process.env);
 const devAuthEnabled = isDevelopmentAuthEnabled(process.env);
 const isProductionProcess = process.env.NODE_ENV !== 'development';
 
@@ -56,6 +60,8 @@ if (persistenceConfig?.mode === 'supabase') economyRepository = createSupabaseEc
 let paymentVerifier: PaymentVerifier | null = null;
 if (paymentConfig?.runtime === 'development') paymentVerifier = new DevelopmentPaymentVerifier(paymentConfig);
 if (paymentConfig?.runtime === 'testnet') paymentVerifier = new DisabledPaymentVerifier();
+if (paymentConfig?.runtime === 'beta' && paymentConfig.betaDemoEnabled) paymentVerifier = new BetaDemoPaymentVerifier(paymentConfig);
+if (paymentConfig?.runtime === 'beta' && !paymentConfig.betaDemoEnabled) paymentVerifier = new WorldDeveloperPaymentVerifier({ ...paymentConfig, runtime: 'production' });
 if (paymentConfig?.runtime === 'production') paymentVerifier = new WorldDeveloperPaymentVerifier(paymentConfig);
 
 const economyService = economyRepository && paymentVerifier && paymentConfig
@@ -66,7 +72,24 @@ if (!isProductionProcess) drawRepository = new DevelopmentMemoryDrawRepository()
 if (isProductionProcess && persistenceConfig?.mode === 'supabase') drawRepository = createSupabaseReadOnlyDrawRepository(persistenceConfig);
 const drawService = drawRepository ? new DrawService(drawRepository, createDrawRandomnessProvider(process.env)) : null;
 
+async function probePersistence(): Promise<boolean> {
+  if (persistenceConfig?.mode === 'development-memory') return true;
+  if (persistenceConfig?.mode !== 'supabase' || !persistenceConfig.supabaseUrl || !persistenceConfig.serviceRoleKey) return false;
+  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 4_000);
+  try {
+    const response = await fetch(`${persistenceConfig.supabaseUrl}/rest/v1/`, { headers: { apikey: persistenceConfig.serviceRoleKey }, signal: controller.signal });
+    await response.body?.cancel(); return response.ok;
+  } catch { return false; } finally { clearTimeout(timeout); }
+}
+
 app.disable('x-powered-by');
+app.use(createOperationalRouter({
+  runtime: runtimePolicy.runtime,
+  configurationValid: Boolean(worldIdConfig && appSessionConfig && persistenceConfig && paymentConfig),
+  persistenceConfigured: Boolean(persistenceConfig),
+  providerConfigurationMissing: validateProviderReadiness(runtimePolicy, process.env),
+  probePersistence,
+}));
 app.get('/api/health', (_request, response) => response.json({
   ok: true,
   runtime: paymentConfig?.runtime ?? 'unconfigured',
@@ -122,7 +145,7 @@ app.post('/api/auth/verify', async (request, response) => {
     const worldResponse = await fetch(`https://developer.world.org/api/v4/verify/${worldIdConfig.rpId}`, {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(proof), signal: controller.signal,
     });
-    if (!worldResponse.ok) { await worldResponse.body?.cancel(); return response.status(401).json({ error: 'World ID proof rejected' }); }
+    if (!worldResponse.ok) { await worldResponse.body?.cancel(); operationalLog('auth_failure', { reason: 'world_id_proof_rejected' }); return response.status(401).json({ error: 'World ID proof rejected' }); }
     const verified = getVerifiedWorldSession(await worldResponse.json());
     if (!verified) return response.status(401).json({ error: 'Proof did not satisfy proof_of_human session requirements' });
     const user = deriveInternalUser(verified.sessionId, appSessionConfig.identitySecret);
@@ -131,6 +154,7 @@ app.post('/api/auth/verify', async (request, response) => {
     response.setHeader('Set-Cookie', serializeSessionCookie(token, appSessionConfig.isProduction));
     return response.json(createSanitizedAuthResponse(user));
   } catch {
+    operationalLog('auth_failure', { reason: controller.signal.aborted ? 'world_id_timeout' : 'world_id_unavailable' });
     return response.status(controller.signal.aborted ? 504 : 502).json({ error: controller.signal.aborted ? 'World ID verification timed out' : 'World ID verification unavailable' });
   } finally { clearTimeout(timeout); }
 });

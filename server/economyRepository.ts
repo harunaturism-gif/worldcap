@@ -100,7 +100,7 @@ export class DevelopmentMemoryEconomyRepository implements EconomyRepository {
         id: randomUUID(), reference: intent.reference, userId: user.id, campaignId: intent.campaignId, tierId: intent.tierId,
         quantity: intent.quantity, unitPriceUnits: intent.unitPriceUnits, totalUnits: intent.totalUnits,
         transactionId: payment.transactionId, transactionHash: payment.transactionHash,
-        payerAddress: payment.from.toLowerCase(), createdAt,
+        payerAddress: payment.from.toLowerCase(), createdAt, settlementMode: payment.settlementMode === 'demo' ? 'demo' : 'verified',
       };
       const issued: TitleRecord[] = [];
       for (let index = 0; index < intent.quantity; index += 1) {
@@ -123,7 +123,7 @@ export class DevelopmentMemoryEconomyRepository implements EconomyRepository {
       const allocations: AllocationRecord[] = rows.map(([bucket, percentage, amountUnits]) => ({ id: randomUUID(), purchaseId: purchase.id, bucket, percentage, amountUnits }));
       assertGrossAllocation(intent.totalUnits, allocations);
       this.allocations.push(...allocations);
-      this.ledger.unshift({ id: randomUUID(), userId: user.id, classification: 'verified_purchase', direction: 'debit', amountUnits: intent.totalUnits, spendable: true, referenceId: purchase.id, description: `${intent.quantity} verified ${ACTIVE_CAMPAIGN.monthLabel} title${intent.quantity === 1 ? '' : 's'}`, createdAt });
+      this.ledger.unshift({ id: randomUUID(), userId: user.id, classification: purchase.settlementMode === 'demo' ? 'demo_purchase' : 'verified_purchase', direction: 'debit', amountUnits: intent.totalUnits, spendable: purchase.settlementMode === 'verified', referenceId: purchase.id, description: `${intent.quantity} ${purchase.settlementMode === 'demo' ? 'non-monetary beta demo' : 'verified'} ${ACTIVE_CAMPAIGN.monthLabel} title${intent.quantity === 1 ? '' : 's'}`, createdAt });
       this.activity.unshift({ id: randomUUID(), type: 'purchase_activity', body: `${user.username} added ${intent.quantity} title${intent.quantity === 1 ? '' : 's'} to the draw.`, createdAt });
       this.purchases.set(purchase.id, purchase); this.transactionIds.set(payment.transactionId, purchase.id);
       intent.status = 'completed'; intent.completedPurchaseId = purchase.id; intent.transactionId = payment.transactionId;

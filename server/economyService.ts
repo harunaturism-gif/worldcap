@@ -15,6 +15,8 @@ export class EconomyService {
 
   paymentMode(): PaymentMode {
     if (this.paymentConfig.runtime === 'development') return 'development-fake';
+    if (this.paymentConfig.runtime === 'beta' && this.paymentConfig.betaDemoEnabled) return 'beta-demo';
+    if (this.paymentConfig.runtime === 'beta') return 'real';
     if (this.paymentConfig.runtime === 'testnet') return 'disabled';
     return 'real';
   }
