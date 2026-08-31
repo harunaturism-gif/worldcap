@@ -43,7 +43,7 @@ export function AuthGate({ children }: { children: (session: AppSession, logout:
       <div className="auth-status" aria-live="polite">
         {status === 'error' ? <p className="auth-error"><AlertCircle size={15} /> Verification failed. Open this app inside World App and retry.</p> : devMode ? <p><span className="status-dot" /> Explicit local DEV bypass is active</p> : <p><ShieldCheck size={14} /> Server-verified IDKit 4.x session</p>}
       </div>
-      <p className="demo-disclaimer">This MVP simulates purchases, prizes, balances, and settlement. No real WLD moves.</p>
+      <p className="demo-disclaimer">Closed technical beta. Prize liabilities and payouts are simulated; real-money prize operation is not authorized.</p>
     </section>
   </main>;
 }
