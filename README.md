@@ -1,10 +1,46 @@
 # WorldCAP
 
-A clean World App vertical slice for verified-human prize titles. World ID authenticates the user; a backend-created payment intent binds quantity, amount, WLD recipient, campaign, and a unique reference; the backend verifies payment before atomically issuing individually identifiable titles and accounting the 60/10/20/10 allocation.
+WorldCAP is a World App Mini App for verified-human digital prize titles.
+
+**LICENSE DECISION REQUIRED**: This is a public repository but currently no open-source license is granted for broad reuse.
+
+## What WorldCAP is
+WorldCAP issues persistent digital titles to humans verified by World ID. Titles are purchased with WLD on World Chain. These titles offer a scratch/reveal experience and act as entries into transparent monthly draws with independently verifiable fairness.
+
+## Why World
+By using World ID for verified-human identity, World Pay for transactions, and World Chain for infrastructure, WorldCAP ensures a WLD-native, provably fair prize economy.
+
+## Core product loop
+1. **Verify**: Connect via World ID.
+2. **Purchase**: Buy persistent digital titles with WLD using MiniKit/World Pay.
+3. **Scratch**: Reveal instant simulated scratch outcomes.
+4. **Draw**: Eligible titles automatically enter transparent, verifiable monthly draws.
+5. **Collect/Renew**: Titles retain provenance and future renewal utility.
+
+## Current implementation status
+- **IMPLEMENTED — NOT DEPLOYMENT-VALIDATED**: World ID verification, WLD purchase intents, atomic Supabase title issuance, exact integer-unit accounting, and Phase 3A trust foundation.
+- **NO REAL-MONEY CUSTODY**: Prize vault custody is entirely simulated.
+- **NO PRODUCTION PAYOUTS**: No real-money payouts are live.
+- **NOT LIVE YET**: Production randomness, custody, and independent audits remain blocked prior to real-money operation.
+
+## Provable fairness
+WorldCAP's foundation ensures transparent monthly draws and independently verifiable fairness. Admins cannot choose or alter winners after draw closure. Every draw result is designed to be independently reproducible from public data and verifiable public randomness.
+
+## Architecture
+WorldCAP is exclusively a **World App Mini App** operating on **World Chain**. The backend manages authenticated sessions, verifies MiniKit WLD payments against Developer Portal servers, and interacts with a secure Supabase backend (where browser access is explicitly restricted).
+
+## Security / trust boundaries
+- **Authentication:** World ID verification and World Pay confirmation are strictly server-side.
+- **Data integrity:** Purchase amounts and title quantities are bound by expiring server intents, avoiding client-side manipulation. Payment references are single-use and idempotent.
+- **Accounting:** Exact 18-decimal integer WLD base units are used universally. Pool values are derived from allocation rows, not actual funded reserve balances.
+- **Simulated outcomes:** Scratch uses cryptographic randomness but is explicitly simulated. Winnings are recorded as non-spendable liabilities.
+
+## Development status / non-production disclaimer
+This repository is a technical MVP. **Do not run in production.** It is not an authorization to operate a lottery, gambling, sweepstakes, or real-money prize product. Further legal, compliance, and independent security reviews are strictly required.
+
+---
 
 [`WORLDCAP_PRODUCT_SPEC_v0.1.md`](./WORLDCAP_PRODUCT_SPEC_v0.1.md) is the living product source of truth. Implementation and roadmap decisions should be reconciled against it while preserving verified security invariants and clearly labeling capabilities that are not live.
-
-Scratch outcomes and draw settlement remain explicitly simulated. A simulated prize is stored as a non-spendable liability and never presented as real WLD.
 
 ## Audit decision
 
@@ -18,7 +54,7 @@ Human World was used only as read-only reference code and was not modified.
 
 ## Local development
 
-The checked-in `.env.development` uses an explicit development-only session and fake payment verifier. It exercises the same intent, backend confirmation, atomic issuance, ledger, and scratch paths without claiming an on-chain transfer. Development economic state is intentionally in memory and resets when the API restarts.
+Your explicitly local-only development mode may use a fake payment verifier. It exercises the same intent, backend confirmation, atomic issuance, ledger, and scratch paths without claiming an on-chain transfer. Development economic state is intentionally in memory and resets when the API restarts.
 
 ```bash
 npm install
@@ -63,25 +99,18 @@ Apply migrations in order:
 1. `supabase/migrations/202608300001_worldprize_mvp.sql`
 2. `supabase/migrations/202608310001_phase2_economic_vertical_slice.sql`
 3. `supabase/migrations/202608310002_product_spec_reconciliation.sql`
+4. `supabase/migrations/202608310003_phase3_trust_foundation.sql`
 
-The second migration adds `numeric(78,0)` WLD base-unit columns, purchase intents, unique payment identifiers, scratch state, simulated liability classification, indexes, active campaign/game/draw seed data, and three service-role-only RPCs:
+The second migration adds `numeric(78,0)` WLD base-unit columns, purchase intents, unique payment identifiers, scratch state, simulated liability classification, indexes, active campaign/game/draw seed data, and three service-role-only RPCs.
 
 The third migration adds campaign-configurable Accessible, Purple, and Gold tiers; original-buyer/current-owner separation; immutable issuance events; independent lifecycle and renewal state; simulated renewal rules; and tier-aware atomic issuance.
+
+The fourth migration adds the Phase 3A trust model: immutable public draw manifests, explicit draw lifecycle and randomness request binding, modeled segregated vaults, finite scratch batches, and explicit renewal funding metadata. It does not deploy custody, a production randomness provider, or payouts. See [`docs/phase3-trust-foundation.md`](./docs/phase3-trust-foundation.md).
 
 - `worldprize_complete_purchase` locks the intent and campaign and atomically creates purchase, titles, ownership, draw entries, wallet metadata, allocation rows, ledger, and activity.
 - `worldprize_reveal_scratch` locks ownership, persists one immutable result, keeps draw eligibility, and records any simulated prize as non-spendable.
 - `worldprize_get_snapshot` returns private purchases/titles/ledger only for the authenticated internal user while exposing aggregate allocation/activity data.
 
 The browser never accesses Supabase directly. RLS remains enabled and the RPCs are executable only by `service_role`.
-
-## Current trust boundary
-
-- World ID verification and World Pay verification are server-side.
-- Purchase amount and title quantity come from a server-created, expiring intent—not client totals.
-- Payment references and transaction IDs are globally single-use; confirmation is idempotent under retries and concurrent requests.
-- WLD uses 18-decimal integer base units (`bigint` in application code, `numeric(78,0)` in Postgres).
-- Pools are derived from persisted allocation rows. They are accounting values, not proof of funded prize vaults.
-- Scratch uses server cryptographic randomness, but it is explicitly simulated and not independently verifiable.
-- Social activity avoids ownership lists and balance disclosure. Member-authored posts are still local-session MVP UI.
 
 See `docs/security-review.md` for the remaining production gates.
