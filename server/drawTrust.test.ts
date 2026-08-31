@@ -68,6 +68,17 @@ describe('draw trust foundation', () => {
     await assert.rejects(service.closeDraw(drawId, '2026-09-30T19:59:59.999Z'), /draw_close_time_not_reached/);
   });
 
+  it('makes concurrent draw closure retry-safe with one frozen manifest', async () => {
+    const { service, drawId } = await fixture();
+    await service.addEligibleTitle(drawId, title(1));
+    const manifests = await Promise.all([
+      service.closeDraw(drawId, finalizedAt),
+      service.closeDraw(drawId, finalizedAt),
+    ]);
+    assert.equal(manifests[0].eligibilityCommitment, manifests[1].eligibilityCommitment);
+    assert.equal(manifests[0].eligibleCount, '1');
+  });
+
   it('orders manifests deterministically and excludes private owners', () => {
     const first = buildDrawManifest('draw-order', [title(9), title(2), title(5)], '2026-09-30T20:00:00.000Z');
     const second = buildDrawManifest('draw-order', [title(5), title(9), title(2)], '2026-10-01T00:00:00.000Z');

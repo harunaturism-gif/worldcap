@@ -7,8 +7,14 @@ function sha256(value: string | Buffer): Buffer {
   return createHash('sha256').update(value).digest();
 }
 
+function lengthPrefix(value: string): string { return `${Buffer.byteLength(value, 'utf8')}:${value}`; }
+
+export function canonicalManifestLeaf(drawId: string, entry: PublicManifestEntry): string {
+  return ['worldcap-manifest-leaf-v1', drawId, entry.index, entry.titleId, entry.serial, entry.tier, entry.campaignId].map(lengthPrefix).join('|');
+}
+
 function leafHash(drawId: string, entry: PublicManifestEntry): Buffer {
-  return sha256(JSON.stringify(['worldcap-manifest-leaf-v1', drawId, entry.index, entry.titleId, entry.serial, entry.tier, entry.campaignId]));
+  return sha256(canonicalManifestLeaf(drawId, entry));
 }
 
 function compareAscii(left: string, right: string): number { return left < right ? -1 : left > right ? 1 : 0; }

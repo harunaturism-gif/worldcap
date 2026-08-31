@@ -25,6 +25,7 @@ export function isEligibleForDraw(draw: DrawRecord, title: DrawEligibilityCandid
 
 export class DrawService {
   private readonly candidates = new Map<string, Map<string, DrawEligibilityCandidate>>();
+  private readonly closeLocks = new Map<string, Promise<void>>();
 
   constructor(private readonly repository: DrawRepository, private readonly randomness: DrawRandomnessProvider) {}
 
@@ -57,19 +58,25 @@ export class DrawService {
   }
 
   async closeDraw(drawId: string, closedAt = new Date().toISOString()): Promise<DrawManifest> {
-    const draw = await this.requireDraw(drawId);
-    if (draw.status !== 'OPEN') throw new Error('draw_cannot_close');
-    if (!Number.isFinite(Date.parse(closedAt)) || Date.parse(closedAt) < Date.parse(draw.closesAt)) throw new Error('draw_close_time_not_reached');
-    const entries = [...(this.candidates.get(drawId)?.values() ?? [])];
-    const manifest = buildDrawManifest(drawId, entries, closedAt);
-    await this.repository.saveManifest(drawId, manifest);
-    draw.status = 'CLOSED';
-    draw.eligibleTitleCount = BigInt(manifest.entries.length);
-    draw.eligibilityCommitment = manifest.eligibilityCommitment;
-    draw.finalizedAt = closedAt;
-    await this.repository.update(draw);
-    this.candidates.delete(drawId);
-    return manifest;
+    return this.withCloseLock(drawId, async () => {
+      const draw = await this.requireDraw(drawId);
+      if (draw.status !== 'OPEN') {
+        const frozen = await this.repository.getManifest(drawId);
+        if (frozen && draw.status !== 'DRAFT') return frozen;
+        throw new Error('draw_cannot_close');
+      }
+      if (!Number.isFinite(Date.parse(closedAt)) || Date.parse(closedAt) < Date.parse(draw.closesAt)) throw new Error('draw_close_time_not_reached');
+      const entries = [...(this.candidates.get(drawId)?.values() ?? [])];
+      const manifest = buildDrawManifest(drawId, entries, closedAt);
+      await this.repository.saveManifest(drawId, manifest);
+      draw.status = 'CLOSED';
+      draw.eligibleTitleCount = BigInt(manifest.entries.length);
+      draw.eligibilityCommitment = manifest.eligibilityCommitment;
+      draw.finalizedAt = closedAt;
+      await this.repository.update(draw);
+      this.candidates.delete(drawId);
+      return manifest;
+    });
   }
 
   async requestRandomness(drawId: string): Promise<DrawRecord> {
@@ -124,5 +131,18 @@ export class DrawService {
     const draw = await this.repository.get(drawId);
     if (!draw) throw new Error('draw_not_found');
     return draw;
+  }
+
+  private async withCloseLock<T>(drawId: string, operation: () => Promise<T>): Promise<T> {
+    const previous = this.closeLocks.get(drawId) ?? Promise.resolve();
+    let release = () => {};
+    const current = new Promise<void>((resolve) => { release = resolve; });
+    this.closeLocks.set(drawId, current);
+    await previous;
+    try { return await operation(); }
+    finally {
+      release();
+      if (this.closeLocks.get(drawId) === current) this.closeLocks.delete(drawId);
+    }
   }
 }
