@@ -1,4 +1,4 @@
-export type OperationalEvent = 'auth_failure' | 'payment_confirmation' | 'draw_closure' | 'randomness_request' | 'randomness_fulfillment' | 'draw_resolution' | 'verification_failure' | 'reconciliation';
+export type OperationalEvent = 'auth_failure' | 'payment_confirmation' | 'draw_closure' | 'randomness_request' | 'randomness_fulfillment' | 'randomness_coordinator_failure' | 'draw_resolution' | 'verification_failure' | 'reconciliation';
 const SAFE_KEYS = new Set(['drawId', 'purchaseId', 'reference', 'requestId', 'provider', 'status', 'attempt', 'reason', 'runtime']);
 
 export function operationalLog(event: OperationalEvent, fields: Record<string, unknown> = {}): string {

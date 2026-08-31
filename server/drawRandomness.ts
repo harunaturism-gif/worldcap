@@ -5,6 +5,9 @@ export interface RandomnessRequest {
   requestId: string;
   provider: string;
   requestedAt: string;
+  transactionHash?: string;
+  requestBlock?: bigint;
+  network?: string;
 }
 
 export interface RandomnessResult {
@@ -12,6 +15,8 @@ export interface RandomnessResult {
   provider: string;
   seed: string;
   fulfilledAt: string;
+  proofReference?: string;
+  fulfillmentBlock?: bigint;
 }
 
 export interface DrawRandomnessProvider {

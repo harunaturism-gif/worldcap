@@ -7,8 +7,14 @@ import { DrawService } from './drawService.js';
 import type { DrawEligibilityCandidate } from './drawTypes.js';
 import { computeArtifactContentHash, createPublicDrawArtifact, serializePublicDrawArtifact } from './publicManifest.js';
 import { verifyDrawV2 } from './verifyDrawV2.js';
-import { createWitnetConfig, WitnetDrawRandomnessProvider, type WitnetChainAdapter, type WitnetConfig } from './witnetRandomness.js';
+import {
+  createWitnetConfig, PinnedWitnetChainAdapter, WitnetDrawRandomnessProvider,
+  type WitnetChainAdapter, type WitnetConfig, type WitnetReadTransport,
+} from './witnetRandomness.js';
 import { algorithmVersionHash, MemoryCommitmentAnchor } from './commitmentAnchor.js';
+import {
+  SupabaseDurableDrawCoordinator, type DrawCoordinatorPersistence, type PersistedCoordinatorJob,
+} from './supabaseDrawCoordinator.js';
 
 const campaignId = 'campaign-beta';
 const finalTime = '2026-10-01T00:00:01.000Z';
@@ -24,6 +30,36 @@ class CountingProvider implements DrawRandomnessProvider {
   fulfillmentCount = 0;
   async requestRandomness(drawId: string) { this.requestCount += 1; return this.delegate.requestRandomness(drawId); }
   async getRandomness(requestId: string) { this.fulfillmentCount += 1; return this.delegate.getRandomness(requestId); }
+}
+
+class DurableFixturePersistence implements DrawCoordinatorPersistence {
+  job: PersistedCoordinatorJob = {
+    drawId: 'durable-beta-draw', provider: 'witnet-randomness-v1', network: 'world-chain-sepolia', status: 'prepared',
+    requestId: null, transactionHash: null, requestBlock: null, randomnessSeed: null, proofReference: null,
+    attemptCount: 0, lastError: null,
+  };
+  async prepare() { this.job.attemptCount += 1; return structuredClone(this.job); }
+  async get() { return structuredClone(this.job); }
+  async bind(_drawId: string, request: Awaited<ReturnType<DrawRandomnessProvider['requestRandomness']>>) {
+    this.job = { ...this.job, status: 'request_bound', requestId: request.requestId, transactionHash: request.transactionHash!, requestBlock: request.requestBlock! };
+  }
+  async fulfill(_drawId: string, _provider: string, _network: string, result: Awaited<ReturnType<DrawRandomnessProvider['getRandomness']>>) {
+    this.job = { ...this.job, status: 'fulfilled', randomnessSeed: result.seed, proofReference: result.proofReference! };
+  }
+  async resolve() { this.job = { ...this.job, status: 'resolved' }; }
+  async fail(_drawId: string, reason: string) { this.job = { ...this.job, status: 'failed', lastError: reason }; }
+}
+
+class DurableFixtureProvider implements DrawRandomnessProvider {
+  requests = 0; fulfillments = 0;
+  async requestRandomness(drawId: string) {
+    this.requests += 1;
+    return { drawId, requestId: `witnet:4801:100:0x${'a'.repeat(64)}`, provider: 'witnet-randomness-v1', requestedAt: finalTime, transactionHash: `0x${'a'.repeat(64)}`, requestBlock: 100n, network: 'world-chain-sepolia' };
+  }
+  async getRandomness(requestId: string) {
+    this.fulfillments += 1;
+    return { requestId, provider: 'witnet-randomness-v1', seed: `0x${'b'.repeat(64)}`, fulfilledAt: finalTime, proofReference: 'eip155:4801:0x1111111111111111111111111111111111111111:randomize-block:100' };
+  }
 }
 
 async function closedDraw(provider: DrawRandomnessProvider = new CountingProvider()) {
@@ -128,6 +164,33 @@ describe('closed beta trust vertical', () => {
     const provider = new WitnetDrawRandomnessProvider(config, adapter);
     const request = await provider.requestRandomness('beta-draw');
     await assert.rejects(provider.getRandomness(request.requestId), /witnet_request_binding_mismatch/);
+  });
+
+  it('reads a pinned Witnet request from World Chain Sepolia without substituting its boundary', async () => {
+    const config: WitnetConfig = { network: 'world-chain-sepolia', chainId: 4801, rpcUrl: 'https://worldchain-sepolia.g.alchemy.com/public', randomnessContract: `0x${'1'.repeat(40)}` };
+    const reader: WitnetReadTransport = {
+      async chainId() { return 4801; }, async bytecode() { return '0x6000'; },
+      async status() { return 2; }, async seed() { return `0x${'2'.repeat(64)}`; },
+    };
+    let submissions = 0;
+    const chain = new PinnedWitnetChainAdapter(reader, { async requestOrRecover() { submissions += 1; return { requestBlock: 100n, transactionHash: `0x${'a'.repeat(64)}`, requestedAt: finalTime }; } });
+    const provider = new WitnetDrawRandomnessProvider(config, chain);
+    const request = await provider.requestRandomness('beta-draw');
+    const result = await provider.getRandomness(request.requestId);
+    assert.equal(submissions, 1);
+    assert.equal(request.requestId, `witnet:4801:100:0x${'a'.repeat(64)}`);
+    assert.equal(result.proofReference, `eip155:4801:${config.randomnessContract}:randomize-block:100`);
+  });
+
+  it('restarts the Supabase-shaped coordinator without a second external request', async () => {
+    const persistence = new DurableFixturePersistence();
+    const provider = new DurableFixtureProvider();
+    const first = new SupabaseDurableDrawCoordinator(persistence, provider, 'witnet-randomness-v1', 'world-chain-sepolia');
+    assert.equal((await first.run('durable-beta-draw')).status, 'resolved');
+    const restarted = new SupabaseDurableDrawCoordinator(persistence, provider, 'witnet-randomness-v1', 'world-chain-sepolia');
+    assert.equal((await restarted.run('durable-beta-draw')).status, 'resolved');
+    assert.equal(provider.requests, 1);
+    assert.equal(provider.fulfillments, 1);
   });
 
   it('rejects commitment anchor overwrite', () => {
