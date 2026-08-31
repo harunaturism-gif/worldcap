@@ -1,0 +1,26 @@
+# Production Readiness Checklist
+
+- [x] **World ID** - READY
+- [x] **payment verification** - READY
+- [x] **Supabase** - READY
+- [x] **database migrations** - READY
+- [x] **RLS** - READY
+- [x] **secrets** - READY
+- [ ] **World Portal** - PARTIAL
+- [ ] **logging** - PARTIAL
+- [ ] **rate limiting** - PARTIAL
+- [ ] **privacy** - PARTIAL
+- [ ] **jurisdiction controls** - PARTIAL
+- [ ] **observability** - NOT STARTED
+- [ ] **reconciliation** - NOT STARTED
+- [ ] **treasury custody** - NOT STARTED
+- [ ] **prize custody** - NOT STARTED
+- [ ] **randomness** - NOT STARTED
+- [ ] **settlement** - NOT STARTED
+- [ ] **contract audits** - NOT STARTED
+- [ ] **incident response** - NOT STARTED
+- [ ] **backups** - NOT STARTED
+- [ ] **deployment** - NOT STARTED
+- [ ] **domain** - NOT STARTED
+- [ ] **public transparency** - NOT STARTED
+- [ ] **mainnet launch** - BLOCKED (Pending Phase 3 and Phase 5 audits/readiness)

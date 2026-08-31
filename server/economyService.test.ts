@@ -101,6 +101,28 @@ describe('economic vertical slice', () => {
     await assert.rejects(service.confirmPurchase(userA, intent.reference, 'tx_reference_0002'), /purchase_reference_consumed/);
   });
 
+  it('rejects an expired purchase intent', async () => {
+    const { service, repository } = fixture();
+    const intent = await service.createPurchaseIntent(userA, { campaignId: ACTIVE_CAMPAIGN_ID, quantity: 1 });
+
+    // forcefully expire the intent
+    const row = repository.intents.get(intent.reference);
+    if (row) {
+      row.expiresAt = new Date(Date.now() - 1000).toISOString();
+    }
+
+    await assert.rejects(service.confirmPurchase(userA, intent.reference, 'tx_expired_intent'), /purchase_intent_expired/);
+  });
+
+  it('rejects cross-user title access', async () => {
+    const { service } = fixture();
+    const complete = await buy(service, userA, 1);
+    const title = complete.titles[0]!;
+
+    // user B tries to scratch user A's title
+    await assert.rejects(service.revealScratch(userB, title.id), /title_not_found/);
+  });
+
   it('makes concurrent confirmation idempotent without double issuance', async () => {
     const { service, repository } = fixture(); const intent = await service.createPurchaseIntent(userA, { campaignId: ACTIVE_CAMPAIGN_ID, quantity: 3 });
     const results = await Promise.all([service.confirmPurchase(userA, intent.reference, 'tx_concurrent_001'), service.confirmPurchase(userA, intent.reference, 'tx_concurrent_001')]);
