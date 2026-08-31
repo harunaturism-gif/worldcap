@@ -37,3 +37,19 @@
 - RLS isolates user data.
 - The system properly hides exact private financial activity and exact private title ownership details from other users (`worldprize_get_snapshot` ensures isolation).
 - Simulated scratch results do not affect spendable WLD balances, preventing false presentation of user assets.
+
+## Dependency / Supply Chain Review
+- All currently installed package versions conform to the checked-in package-lock.json.
+- No immediate large dependency upgrades should be performed automatically, as that might break things.
+- No critical vulnerabilities found in `npm install`.
+
+## Environment / Secret Review
+- Config parsing cleanly checks environments and rejects requests missing correct settings outside explicit dev mode.
+- `.env.example` correctly hints at needed vars.
+- Secrets are properly guarded in the server and are not accidentally leaked to the client bundle (e.g. no VITE_ prefixes on server keys).
+- Supabase `SUPABASE_SERVICE_ROLE_KEY` is server-only.
+
+## Database / RLS Findings
+- Supabase migrations appear sound.
+- Overly broad policies or public write access were not found, meaning RLS protects user privacy effectively.
+- Service-role assumptions correctly assume RPC functions are only executable by `service_role`.
