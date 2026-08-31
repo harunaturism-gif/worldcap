@@ -14,7 +14,7 @@ const navigation = [
 
 export function AppShell({ session, tab, onTab, onLogout, children }: { session: AppSession; tab: Tab; onTab: (tab: Tab) => void; onLogout: () => void; children: ReactNode }) {
   const { snapshot } = useMvpStore();
-  const verifiedSpend = snapshot?.ledger.filter((entry) => entry.classification === 'verified_purchase').reduce((sum, entry) => sum + BigInt(entry.amountUnits), 0n) ?? 0n;
+  const verifiedSpend = snapshot?.ledger.reduce((sum, entry) => entry.classification === 'verified_purchase' ? sum + BigInt(entry.amountUnits) : sum, 0n) ?? 0n;
   return <div className="app-shell">
     <header className="topbar">
       <button className="brand-button" onClick={() => onTab('home')} aria-label="WorldCAP home">
