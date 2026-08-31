@@ -4,8 +4,17 @@ import { useMvpStore, formatWld } from '../store/mvpStore';
 export function WalletPage() {
   const { snapshot } = useMvpStore();
   if (!snapshot) return null;
-  const verifiedSpend = snapshot.ledger.filter((entry) => entry.classification === 'verified_purchase').reduce((sum, entry) => sum + BigInt(entry.amountUnits), 0n);
-  const simulatedLiability = snapshot.ledger.filter((entry) => entry.classification === 'simulated_scratch_prize').reduce((sum, entry) => sum + BigInt(entry.amountUnits), 0n);
+  const { verifiedSpend, simulatedLiability } = snapshot.ledger.reduce(
+    (acc, entry) => {
+      if (entry.classification === 'verified_purchase') {
+        acc.verifiedSpend += BigInt(entry.amountUnits);
+      } else if (entry.classification === 'simulated_scratch_prize') {
+        acc.simulatedLiability += BigInt(entry.amountUnits);
+      }
+      return acc;
+    },
+    { verifiedSpend: 0n, simulatedLiability: 0n }
+  );
   return <div className="page-stack">
     <div className="page-heading"><div><p className="eyebrow">Finance</p><h1>Wallet & history</h1><p>Verified WLD purchases and simulated prize liabilities are intentionally separate.</p></div><span className="simulation-badge">Server ledger</span></div>
     <section className="wallet-card"><div className="wallet-orb"><WalletCards /></div><div><small>Connected payer</small><h2 className="wallet-address">{snapshot.walletAddress ? `${snapshot.walletAddress.slice(0, 8)}…${snapshot.walletAddress.slice(-6)}` : 'No verified payment yet'}</h2><p>No custodial or invented in-app balance</p></div><div className="wallet-actions"><button disabled><ArrowDownLeft size={17} /> Add WLD</button><button disabled><ArrowUpRight size={17} /> Send</button></div></section>
