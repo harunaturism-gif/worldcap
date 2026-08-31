@@ -45,6 +45,8 @@ describe('closed beta trust vertical', () => {
     assert.equal(first.artifactContentHash, second.artifactContentHash);
     assert.equal(computeArtifactContentHash(first), first.artifactContentHash);
     assert.equal(serializePublicDrawArtifact(first).includes(title.currentOwnerId), false);
+    const tampered = { ...first, entries: [{ ...first.entries[0]!, serial: 'SUBSTITUTED-SERIAL' }] };
+    assert.notEqual(computeArtifactContentHash(tampered), first.artifactContentHash);
   });
 
   it('survives coordinator restart without a duplicate randomness request', async () => {

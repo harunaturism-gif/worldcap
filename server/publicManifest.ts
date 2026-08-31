@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { DrawManifest, DrawRecord, PublicManifestEntry } from './drawTypes.js';
 
-export const PUBLIC_DRAW_SCHEMA_VERSION = 'worldcap-public-draw-v1' as const;
+export const PUBLIC_DRAW_SCHEMA_VERSION = 'worldcap-public-draw-v2' as const;
 
 export interface PublicDrawArtifact {
   schemaVersion: typeof PUBLIC_DRAW_SCHEMA_VERSION;
@@ -18,8 +18,20 @@ export interface PublicDrawArtifact {
 
 function prefix(value: string): string { return `${Buffer.byteLength(value, 'utf8')}:${value}`; }
 
-export function computeArtifactContentHash(input: Omit<PublicDrawArtifact, 'artifactContentHash' | 'entries'>): string {
-  const canonical = [input.schemaVersion, input.algorithmVersion, input.drawId, input.campaignId, input.scope, input.closedAt, input.eligibleCount, input.manifestRoot].map(prefix).join('|');
+export function canonicalArtifactContent(input: Omit<PublicDrawArtifact, 'artifactContentHash'>): string {
+  const fields = [
+    'worldcap-public-artifact-content-v2', input.schemaVersion, input.algorithmVersion,
+    input.drawId, input.campaignId, input.scope, input.closedAt, input.eligibleCount,
+    input.manifestRoot, String(input.entries.length),
+  ];
+  for (const entry of input.entries) {
+    fields.push(entry.index, entry.titleId, entry.serial, entry.tier, entry.campaignId);
+  }
+  return fields.map(prefix).join('|');
+}
+
+export function computeArtifactContentHash(input: Omit<PublicDrawArtifact, 'artifactContentHash'>): string {
+  const canonical = canonicalArtifactContent(input);
   return `sha256:${createHash('sha256').update(canonical).digest('hex')}`;
 }
 
@@ -35,7 +47,8 @@ export function createPublicDrawArtifact(draw: DrawRecord, manifest: DrawManifes
     eligibleCount: draw.eligibleTitleCount.toString(),
     manifestRoot: draw.eligibilityCommitment,
   } as const;
-  return Object.freeze({ ...base, artifactContentHash: computeArtifactContentHash(base), entries: Object.freeze(manifest.entries.map((entry) => Object.freeze({ ...entry }))) });
+  const entries = Object.freeze(manifest.entries.map((entry) => Object.freeze({ ...entry })));
+  return Object.freeze({ ...base, artifactContentHash: computeArtifactContentHash({ ...base, entries }), entries });
 }
 
 export function serializePublicDrawArtifact(artifact: PublicDrawArtifact): string {

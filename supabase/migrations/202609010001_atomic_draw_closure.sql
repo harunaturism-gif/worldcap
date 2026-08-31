@@ -56,20 +56,39 @@ $$;
 
 create or replace function public.worldcap_artifact_content_hash(
   p_draw_id uuid, p_campaign_id uuid, p_scope text, p_closed_at timestamptz,
-  p_eligible_count numeric, p_manifest_root text, p_algorithm_version text
-) returns text language sql immutable strict parallel safe
+  p_eligible_count numeric, p_manifest_root text, p_algorithm_version text,
+  p_entries jsonb
+) returns text language plpgsql immutable strict parallel safe
 set search_path = public, pg_temp
 as $$
-  select 'sha256:' || encode(digest(convert_to(concat_ws('|',
-    public.worldcap_length_prefix('worldcap-public-draw-v1'),
+declare v_entry jsonb; v_canonical text;
+begin
+  if jsonb_typeof(p_entries) <> 'array' or jsonb_array_length(p_entries) <> p_eligible_count then
+    raise exception 'artifact_entries_invalid';
+  end if;
+  v_canonical := concat_ws('|',
+    public.worldcap_length_prefix('worldcap-public-artifact-content-v2'),
+    public.worldcap_length_prefix('worldcap-public-draw-v2'),
     public.worldcap_length_prefix(p_algorithm_version),
     public.worldcap_length_prefix(p_draw_id::text),
     public.worldcap_length_prefix(p_campaign_id::text),
     public.worldcap_length_prefix(p_scope),
     public.worldcap_length_prefix(to_char(p_closed_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')),
     public.worldcap_length_prefix(p_eligible_count::text),
-    public.worldcap_length_prefix(p_manifest_root)
-  ), 'UTF8'), 'sha256'), 'hex')
+    public.worldcap_length_prefix(p_manifest_root),
+    public.worldcap_length_prefix(jsonb_array_length(p_entries)::text)
+  );
+  for v_entry in select value from jsonb_array_elements(p_entries) loop
+    v_canonical := v_canonical || '|' || concat_ws('|',
+      public.worldcap_length_prefix(v_entry->>'index'),
+      public.worldcap_length_prefix(v_entry->>'titleId'),
+      public.worldcap_length_prefix(v_entry->>'serial'),
+      public.worldcap_length_prefix(v_entry->>'tier'),
+      public.worldcap_length_prefix(v_entry->>'campaignId')
+    );
+  end loop;
+  return 'sha256:' || encode(digest(convert_to(v_canonical, 'UTF8'), 'sha256'), 'hex');
+end
 $$;
 
 create or replace function public.worldcap_close_draw(p_draw_id uuid)
@@ -137,7 +156,7 @@ begin
   v_root := public.worldcap_manifest_root(p_draw_id, v_entries);
   v_content_hash := public.worldcap_artifact_content_hash(
     p_draw_id, v_draw.campaign_id, v_draw.eligibility_scope, v_closed_at,
-    v_count, v_root, v_draw.algorithm_version
+    v_count, v_root, v_draw.algorithm_version, v_entries
   );
 
   insert into public.draw_manifests (
@@ -146,7 +165,7 @@ begin
   ) values (
     p_draw_id, v_draw.manifest_version, v_count, v_root, v_content_hash,
     jsonb_build_object(
-      'schemaVersion', 'worldcap-public-draw-v1', 'algorithmVersion', v_draw.algorithm_version,
+      'schemaVersion', 'worldcap-public-draw-v2', 'algorithmVersion', v_draw.algorithm_version,
       'drawId', p_draw_id::text, 'campaignId', v_draw.campaign_id::text,
       'scope', v_draw.eligibility_scope,
       'closedAt', to_char(v_closed_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
@@ -169,7 +188,7 @@ $$;
 
 revoke all on function public.worldcap_length_prefix(text) from public, anon, authenticated;
 revoke all on function public.worldcap_manifest_root(uuid, jsonb) from public, anon, authenticated;
-revoke all on function public.worldcap_artifact_content_hash(uuid, uuid, text, timestamptz, numeric, text, text) from public, anon, authenticated;
+revoke all on function public.worldcap_artifact_content_hash(uuid, uuid, text, timestamptz, numeric, text, text, jsonb) from public, anon, authenticated;
 revoke all on function public.worldcap_close_draw(uuid) from public, anon, authenticated;
 grant execute on function public.worldcap_close_draw(uuid) to service_role;
 
