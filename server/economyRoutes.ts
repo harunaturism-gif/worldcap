@@ -3,6 +3,8 @@ import type { AppSessionConfig, InternalUser } from './appSession.js';
 import { extractSessionToken, verifyApplicationSession } from './appSession.js';
 import type { EconomyService } from './economyService.js';
 import { createFixedWindowRateLimiter } from './rateLimit.js';
+import { operationalLog } from './structuredLogger.js';
+import type { ReconciliationQueue } from './paymentReconciliation.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const TRANSACTION_ID_PATTERN = /^[A-Za-z0-9_-]{8,200}$/;
@@ -16,7 +18,9 @@ function errorStatus(message: string): number {
   return 503;
 }
 
-export function createEconomyRouter(service: EconomyService, sessionConfig: AppSessionConfig) {
+const RETRYABLE_PAYMENT_ERRORS = new Set(['payment_verification_rejected', 'invalid_payment_verification_response', 'payment_verification_timeout', 'payment_verification_unavailable']);
+
+export function createEconomyRouter(service: EconomyService, sessionConfig: AppSessionConfig, reconciliation?: ReconciliationQueue) {
   const router = express.Router();
   router.use(express.json({ limit: '16kb', strict: true }));
   router.use((request, response, next) => {
@@ -46,8 +50,21 @@ export function createEconomyRouter(service: EconomyService, sessionConfig: AppS
     const reference = Array.isArray(request.params.reference) ? request.params.reference[0] : request.params.reference;
     const transactionId = request.body?.transactionId;
     if (!reference || !UUID_PATTERN.test(reference) || typeof transactionId !== 'string' || !TRANSACTION_ID_PATTERN.test(transactionId)) return response.status(400).json({ error: 'Invalid payment confirmation' });
-    try { return response.json(safeJson(await service.confirmPurchase(userFor(request), reference, transactionId))); }
-    catch (error) { return response.status(errorStatus(error instanceof Error ? error.message : '')).json({ error: error instanceof Error ? error.message : 'Payment confirmation rejected' }); }
+    try { const result = await service.confirmPurchase(userFor(request), reference, transactionId); operationalLog('payment_confirmation', { reference, purchaseId: result.purchase.id, status: result.replayed ? 'replayed' : 'completed' }); return response.json(safeJson(result)); }
+    catch (error) {
+      const reason = error instanceof Error ? error.message : 'payment_confirmation_rejected';
+      if (reconciliation && RETRYABLE_PAYMENT_ERRORS.has(reason)) {
+        try {
+          await reconciliation.enqueue(userFor(request), reference, transactionId);
+          operationalLog('payment_confirmation', { reference, status: 'pending_reconciliation', reason });
+          return response.status(202).json({ pending: true, reference, status: 'pending_reconciliation' });
+        } catch (queueError) {
+          operationalLog('payment_confirmation', { reference, status: 'reconciliation_enqueue_failed', reason: queueError instanceof Error ? queueError.message : 'reconciliation_enqueue_failed' });
+          return response.status(503).json({ error: 'payment_reconciliation_unavailable' });
+        }
+      }
+      operationalLog('payment_confirmation', { reference, status: 'rejected', reason }); return response.status(errorStatus(reason)).json({ error: reason });
+    }
   });
 
   router.post('/titles/:titleId/scratch', createFixedWindowRateLimiter(15, 60_000), async (request, response) => {
