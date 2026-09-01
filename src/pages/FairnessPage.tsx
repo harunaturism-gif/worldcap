@@ -9,7 +9,7 @@ export function FairnessPage() {
   const verify = async () => {
     if (!/^[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/.test(drawId)) { setError('Enter a valid public draw ID.'); return; }
     setLoading(true); setError(null);
-    try { const base = (import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:3001').replace(/\/$/, ''); const [fairnessResponse, verificationResponse] = await Promise.all([fetch(`${base}/api/draws/${encodeURIComponent(drawId)}/fairness`), fetch(`${base}/api/draws/${encodeURIComponent(drawId)}/verify`)]); if (!fairnessResponse.ok || !verificationResponse.ok) throw new Error('Draw not found or not yet public.'); setResult(await fairnessResponse.json() as FairnessResult); setVerification(await verificationResponse.json() as VerificationV2); }
+    try { const fallback = import.meta.env.PROD ? window.location.origin : 'http://127.0.0.1:3001'; const base = (import.meta.env.VITE_BACKEND_URL || fallback).replace(/\/$/, ''); const [fairnessResponse, verificationResponse] = await Promise.all([fetch(`${base}/api/draws/${encodeURIComponent(drawId)}/fairness`), fetch(`${base}/api/draws/${encodeURIComponent(drawId)}/verify`)]); if (!fairnessResponse.ok || !verificationResponse.ok) throw new Error('Draw not found or not yet public.'); setResult(await fairnessResponse.json() as FairnessResult); setVerification(await verificationResponse.json() as VerificationV2); }
     catch (cause) { setResult(null); setVerification(null); setError(cause instanceof Error ? cause.message : 'Verification unavailable.'); }
     finally { setLoading(false); }
   };

@@ -16,7 +16,8 @@ interface RpContextResponse {
 }
 
 function backendUrl(): string {
-  return (import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:3001').replace(/\/$/, '');
+  const fallback = import.meta.env.PROD ? window.location.origin : 'http://127.0.0.1:3001';
+  return (import.meta.env.VITE_BACKEND_URL || fallback).replace(/\/$/, '');
 }
 
 function isAuthUser(value: unknown): value is AppSession['user'] {

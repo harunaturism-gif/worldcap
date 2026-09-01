@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import express from 'express';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createSessionRpContext, getVerifiedWorldSession, isValidProofPayload } from './authSession.js';
 import {
@@ -48,6 +49,10 @@ const runtimePolicy = createRuntimePolicy(process.env);
 const commitmentAnchorConfig = createCommitmentAnchorConfig(process.env);
 const devAuthEnabled = isDevelopmentAuthEnabled(process.env);
 const isProductionProcess = process.env.NODE_ENV !== 'development';
+
+if (process.env.VERCEL && process.env.ENABLE_BACKGROUND_WORKERS === 'true') {
+  throw new Error('vercel_background_workers_forbidden');
+}
 
 if (isProductionProcess && (!worldIdConfig || !appSessionConfig || !persistenceConfig || persistenceConfig.mode !== 'supabase' || !paymentConfig)) {
   throw new Error('Invalid production/testnet authentication, payment, or persistence configuration');
@@ -203,13 +208,26 @@ if (process.env.ENABLE_BACKGROUND_WORKERS === 'true') {
   setInterval(() => void tick(), 15_000).unref();
 }
 
+if (isProductionProcess) {
+  const webRoot = resolve(process.cwd(), 'public');
+  app.use(express.static(webRoot));
+  app.use((request, response, next) => {
+    if (request.method !== 'GET' || request.path.startsWith('/api/') || !request.accepts('html')) return next();
+    return response.sendFile(resolve(webRoot, 'index.html'));
+  });
+}
+
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   void _next;
   if (error instanceof SyntaxError) return response.status(400).json({ error: 'Invalid JSON payload' });
   return response.status(500).json({ error: 'Unexpected server error' });
 });
 
-app.listen(port, '127.0.0.1', () => {
-  console.log(`WorldCAP API listening on http://127.0.0.1:${port}`);
-  console.log(`Runtime=${paymentConfig?.runtime ?? 'unconfigured'} payment=${economyService?.paymentMode() ?? 'disabled'} persistence=${persistenceConfig?.mode ?? 'unconfigured'}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(port, '127.0.0.1', () => {
+    console.log(`WorldCAP API listening on http://127.0.0.1:${port}`);
+    console.log(`Runtime=${paymentConfig?.runtime ?? 'unconfigured'} payment=${economyService?.paymentMode() ?? 'disabled'} persistence=${persistenceConfig?.mode ?? 'unconfigured'}`);
+  });
+}
+
+export default app;
