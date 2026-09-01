@@ -43,9 +43,13 @@ export function MvpStoreProvider({ children }: { session: AppSession; children: 
   const buyTitles = useCallback(async (quantity: number, tierId: string) => {
     if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 10) return { ok: false, message: 'Choose 1–10 titles.' };
     setAction('purchase');
-    try {
-      const completion = await EconomyApi.purchase(quantity, tierId);
-      await refresh();
+      try {
+        const completion = await EconomyApi.purchase(quantity, tierId);
+        if ('pending' in completion) {
+          await refresh();
+          return { ok: true, message: 'Payment is still finalizing. WorldCAP will reconcile it automatically without issuing twice.' };
+        }
+        await refresh();
       return { ok: true, message: `${completion.titles.length} verified title${completion.titles.length === 1 ? '' : 's'} issued.` };
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'Purchase failed';

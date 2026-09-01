@@ -5,11 +5,12 @@ const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/;
 const TRANSACTION_ID_PATTERN = /^[A-Za-z0-9_-]{8,200}$/;
 
 export interface PaymentConfig {
-  runtime: 'development' | 'testnet' | 'production';
+  runtime: 'development' | 'beta' | 'testnet' | 'production';
   appId: string;
   recipient: string;
   developerApiKey?: string;
   fakePaymentsEnabled: boolean;
+  betaDemoEnabled?: boolean;
 }
 
 export interface PaymentVerifier {
@@ -26,14 +27,17 @@ export function createPaymentConfig(environment: NodeJS.ProcessEnv): PaymentConf
   const recipient = environment.WORLDPRIZE_PAYMENT_RECIPIENT;
   const developerApiKey = environment.WORLD_DEVELOPER_API_KEY;
   const fakePaymentsEnabled = environment.ENABLE_DEV_FAKE_PAYMENTS === 'true';
-  if (runtime !== 'development' && runtime !== 'testnet' && runtime !== 'production') return null;
+  const betaDemoEnabled = environment.ENABLE_BETA_DEMO_PURCHASES === 'true';
+  if (runtime !== 'development' && runtime !== 'beta' && runtime !== 'testnet' && runtime !== 'production') return null;
   if (!appId || !/^app_[A-Za-z0-9_-]{4,}$/.test(appId) || !recipient || !ADDRESS_PATTERN.test(recipient)) return null;
   if (runtime === 'development') {
     if (!fakePaymentsEnabled || developerApiKey) return null;
+  } else if (runtime === 'beta') {
+    if (fakePaymentsEnabled || (betaDemoEnabled ? Boolean(developerApiKey) : !developerApiKey || developerApiKey.length < 24)) return null;
   } else if (runtime === 'testnet') {
     if (fakePaymentsEnabled || developerApiKey) return null;
-  } else if (fakePaymentsEnabled || !developerApiKey || developerApiKey.length < 24 || developerApiKey !== developerApiKey.trim()) return null;
-  return { runtime, appId, recipient: recipient.toLowerCase(), developerApiKey, fakePaymentsEnabled };
+  } else if (fakePaymentsEnabled || betaDemoEnabled || !developerApiKey || developerApiKey.length < 24 || developerApiKey !== developerApiKey.trim()) return null;
+  return { runtime, appId, recipient: recipient.toLowerCase(), developerApiKey, fakePaymentsEnabled, betaDemoEnabled };
 }
 
 export function assertVerifiedPayment(payment: VerifiedPayment, intent: PurchaseIntentRecord, config: PaymentConfig): void {
@@ -98,10 +102,28 @@ export class WorldDeveloperPaymentVerifier implements PaymentVerifier {
         timestamp: value.timestamp, tokenAmount: value.token_amount, token: value.token,
         to: value.to, appId: value.app_id,
       };
+    } catch (error) {
+      if (error instanceof Error && (error.message === 'payment_verification_rejected' || error.message === 'invalid_payment_verification_response' || error.message === 'invalid_transaction_id')) throw error;
+      throw new Error(controller.signal.aborted ? 'payment_verification_timeout' : 'payment_verification_unavailable');
     } finally { clearTimeout(timeout); }
   }
 }
 
 export class DisabledPaymentVerifier implements PaymentVerifier {
   async verify(): Promise<VerifiedPayment> { throw new Error('world_pay_testnet_is_not_supported'); }
+}
+
+export class BetaDemoPaymentVerifier implements PaymentVerifier {
+  constructor(private readonly config: PaymentConfig) {
+    if (config.runtime !== 'beta' || !config.betaDemoEnabled || config.fakePaymentsEnabled || config.developerApiKey) throw new Error('Beta demo purchases are disabled');
+  }
+  async verify(transactionId: string, intent: PurchaseIntentRecord): Promise<VerifiedPayment> {
+    if (!/^demotx_[0-9a-f-]{36}$/.test(transactionId)) throw new Error('invalid_beta_demo_transaction');
+    return {
+      transactionId, transactionHash: `0x${transactionId.slice(7).replaceAll('-', '').padEnd(64, '0')}`,
+      reference: intent.reference, transactionStatus: 'mined', from: '0x000000000000000000000000000000000000dEaD',
+      chain: 'worldchain', tokenAmount: intent.totalUnits.toString(), token: 'WLD', to: intent.recipient,
+      appId: this.config.appId, timestamp: new Date().toISOString(), settlementMode: 'demo',
+    };
+  }
 }

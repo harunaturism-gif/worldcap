@@ -7,7 +7,7 @@ export const GOLD_TIER_ID = '44444444-4444-4444-8444-444444444444';
 export const TITLE_PRICE_UNITS = 5_000_000_000_000_000_000n; // Purple default retained for compatibility.
 export const MAX_TITLES_PER_PURCHASE = 10;
 
-export type PaymentMode = 'real' | 'development-fake' | 'disabled';
+export type PaymentMode = 'real' | 'development-fake' | 'beta-demo' | 'disabled';
 export type AllocationBucket = 'monthly_prize_pool' | 'annual_jackpot' | 'platform_operations' | 'commercial_growth';
 export type TitleTierCode = 'accessible' | 'purple' | 'gold';
 export type TitleLifecycleState = 'active' | 'draw_period_complete' | 'archived' | 'eligible_for_renewal';
@@ -73,6 +73,7 @@ export interface VerifiedPayment {
   to: string;
   appId: string;
   timestamp: string;
+  settlementMode?: 'verified' | 'demo';
 }
 
 export interface PurchaseRecord {
@@ -88,6 +89,7 @@ export interface PurchaseRecord {
   transactionHash: string;
   payerAddress: string;
   createdAt: string;
+  settlementMode: 'verified' | 'demo';
 }
 
 export interface TitleRecord {
@@ -131,7 +133,7 @@ export interface AllocationRecord {
 export interface LedgerRecord {
   id: string;
   userId: string;
-  classification: 'verified_purchase' | 'simulated_scratch_prize';
+  classification: 'verified_purchase' | 'demo_purchase' | 'simulated_scratch_prize';
   direction: 'debit' | 'credit';
   amountUnits: bigint;
   spendable: boolean;
