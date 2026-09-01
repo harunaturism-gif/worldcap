@@ -4,7 +4,7 @@ Status: implemented as a deterministic, test-only/application foundation. No rea
 
 ## Audit summary
 
-Phase 2 already provides server-verified World Pay purchases, atomic/idempotent title issuance, integer WLD accounting, the exact 60/10/20/10 allocation, immutable issuance provenance, independent original/current ownership, and persisted one-time scratch results. Those paths remain authoritative and unchanged.
+Historical note: Phase 2 originally provided 60/10/20/10 accounting and paid scratch persistence. New purchases use the later 40/38/10/10/2 model, quarterly direction, five-winner monthly resolution, and free Monthly Human Claim V2. Original rows remain readable but are not active economics.
 
 The legacy draw schema only pre-created `draw_entries` while a draw was `scheduled`. It had no closure transaction, frozen manifest commitment, unbiased selection algorithm, randomness request binding, or independent verification engine. Prize vault rows were accounting placeholders rather than enforceable funded/liability views. Renewal rules existed, but their future funding source was deliberately unspecified.
 
@@ -50,7 +50,7 @@ The legacy draw schema only pre-created `draw_entries` while a draw was `schedul
 - Winner algorithm `worldcap-draw-v1` maps a 256-bit public seed to the frozen ordered manifest using rejection sampling. Administrators provide neither a title nor an index.
 - Local deterministic randomness requires an explicit development/test runtime and seed. Production construction throws.
 - Monthly/annual Prize Vault liabilities cannot exceed their own funding. Platform and Growth vaults never count as prize funding.
-- Renewal liability is non-spendable, separately recorded, and has `UNDECIDED` funding until a founder-approved rule names a funded reserve. TODO: evaluate Growth versus a dedicated Renewal Reserve without changing 60/10/20/10.
+- Renewal liability is non-spendable, separately recorded, and has `UNDECIDED` funding until a founder-approved rule names a funded reserve. TODO: evaluate Growth versus a dedicated Renewal Reserve without silently changing the current published allocation.
 
 ## Distribution boundary
 

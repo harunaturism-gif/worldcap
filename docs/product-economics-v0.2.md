@@ -168,7 +168,8 @@ Not funded from the 100% WLD Title-sale allocation.
 
 ```text
 verified human
-→ one claim per day/claim period
+→ one registration per UTC calendar month
+→ fixed published pool divided equally at finalization
 → CAP
 ```
 

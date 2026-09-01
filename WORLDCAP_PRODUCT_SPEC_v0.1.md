@@ -3,6 +3,8 @@ Version: 0.1
 Date: 2026-08-31
 Status: Living source of truth
 
+> **Living-source reconciliation (2026-09-01):** For the active closed-beta implementation, the accepted decisions in `docs/adr-cap-economy-v1.md`, `docs/product-economics-v0.2.md`, `docs/economics-five-winner-quarterly-v1.md`, and `docs/genesis-cap-growth-v1.md` supersede conflicting v0.1 passages about 60/10/20/10, annual jackpot, paid scratch, daily rewards, single-winner monthly draws, or WLD-only economics. Historical concepts remain below for provenance; they are not active product behavior.
+
 ## Product thesis
 
 WorldCAP is exclusively a World App Mini App built around persistent digital prize titles.

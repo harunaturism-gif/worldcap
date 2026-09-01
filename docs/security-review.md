@@ -8,8 +8,7 @@
 - Strict verification of payment reference, mined status, World Chain, WLD, amount, recipient, app ID, and payer address.
 - Unique transaction/reference constraints plus row locks and one atomic purchase-completion transaction.
 - Integer WLD base units end to end; allocation remainder is assigned deterministically so rows sum exactly to the purchase.
-- Server-authoritative ownership and scratch results; another user receives no private ownership data and cannot scratch the title.
-- One scratch result per title; retry returns the stored result and draw eligibility remains true.
+- Server-authoritative ownership; another user receives no private ownership data. Historical scratch results remain immutable/read-only and new paid scratch liabilities fail closed.
 - Simulated winnings are `spendable=false`, do not alter verified spend, and are labeled as liabilities.
 - Service-role-only database RPCs and RLS with no browser policies.
 
@@ -17,8 +16,7 @@
 
 - Local development uses in-memory persistence and an explicit fake verifier.
 - Testnet payment is disabled because the current World Pay product does not support a testnet rail.
-- Scratch uses server cryptographic randomness, not VRF or commit/reveal.
-- Scratch and draw prize settlement, vault custody, claims, and redemption are simulated.
+- Draw prize settlement, vault custody, CAP accounting, claims, and redemption are simulated. Paid scratch is no longer an active V1 mechanic.
 - Social post persistence, follows, reactions, moderation, and public-profile consent controls are minimal.
 - The migration has not been applied to a user-supplied Supabase project in this workspace.
 
@@ -61,7 +59,18 @@ This repository is a technical MVP, not authorization to operate a lottery, gamb
 - **Randomness availability policy is open:** retry, provider failure, late fulfillment, and draw cancellation rules must be published before real draws. A fulfilled request must never be substituted merely because its result is inconvenient.
 - **Tier economics are not finalized:** scopes are explicit and unweighted, but founder/product/legal decisions must define which tiers enter Global, annual, and exclusive draws.
 - **Renewal funding is unresolved:** evaluate Growth funding versus a dedicated Renewal Reserve. Do not activate non-zero credits until a funded source and accounting treatment are approved.
-- **Scratch inventory assignment is deferred:** the batch solvency model exists, but finite outcome generation/commitment, secret handling, and independent verification are not yet designed.
+- **Legacy scratch inventory is retired from the active V1 loop:** its historical solvency model remains for migration provenance; no new paid scratch outcome is issued.
+
+## Genesis CAP Growth / Human Claim V2 review
+
+- Registration requires an authenticated World ID proof-of-human identity and is unique per human/month.
+- Registration records zero CAP; only CLOSED → FINALIZED settlement credits the immutable source ledger.
+- Finalization locks the epoch, orders participants deterministically, divides integer units equally, and records the remainder as unissued.
+- Published Growth configuration and budgets are immutable; qualification reserves budget before a reward can be claimed.
+- External follow quests fail closed without an authoritative provider. Client self-attestation is not accepted.
+- Referrals require distinct verified humans, bind once before qualification, and cannot be replayed or rebound.
+- Title milestones count only settled, verified (non-demo) purchases in the Supabase implementation.
+- Founder metrics require a server-side user allowlist and expose no mutation, mint, transfer, confiscation, winner, or payout operation.
 
 ### Phase 3B security gates
 

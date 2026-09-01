@@ -111,7 +111,7 @@ World ID verified human
 → CAP
 ```
 
-Target cadence: one claim per verified human per day, subject to epoch budget.
+Active closed-beta cadence: one registration per verified human per UTC calendar month. A fixed pool is published before opening; registration credits nothing immediately; finalization divides the pool equally and leaves any integer remainder explicitly unissued.
 
 Rules:
 - no Title purchase required;
