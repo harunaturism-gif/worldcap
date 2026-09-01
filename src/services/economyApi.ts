@@ -24,7 +24,10 @@ export interface PurchasePendingDto { pending: true; reference: string; status: 
 export interface ScratchCompletionDto { title: TitleDto; result: ScratchResultDto; replayed: boolean }
 export interface CapRedemptionCompletionDto { titleId: string; claimedUnits: string; drawEligible: true; replayed: boolean }
 
-function backendUrl(): string { return (import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:3001').replace(/\/$/, ''); }
+function backendUrl(): string {
+  const fallback = import.meta.env.PROD ? window.location.origin : 'http://127.0.0.1:3001';
+  return (import.meta.env.VITE_BACKEND_URL || fallback).replace(/\/$/, '');
+}
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${backendUrl()}${path}`, { ...init, credentials: 'include', headers: { 'Content-Type': 'application/json', ...init?.headers } });
