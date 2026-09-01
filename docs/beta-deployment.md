@@ -4,9 +4,9 @@ This checklist deploys a technical beta. Passing it does **not** authorize real-
 
 ## 1. Build and infrastructure
 
-1. Deploy the Vite output from `dist/` behind HTTPS.
-2. Deploy `server/dist/index.js` as a long-running Node 20+ service. Expose only HTTPS through the platform ingress.
-3. Provision a dedicated Supabase project and apply every migration in filename order through `202609010007_external_randomness_proof.sql`.
+1. Build the Vite output into `public/` and package it with the root `server.ts` Vercel entrypoint.
+2. Use the dedicated paused `worldcap-beta` Vercel project for manual Preview deployments only. Automatic Git deployments are disabled in `vercel.json`; never promote `main` for this beta.
+3. Provision the dedicated beta Supabase project and apply every migration in filename order through `202609010010_economics_five_winner_quarterly_v1.sql`.
 4. Confirm browser roles cannot execute service-role RPCs or read private manifest/coordinator tables.
 5. Keep the frontend and API same-origin where possible. If split, set one exact `APP_ORIGIN`; wildcards are rejected.
 

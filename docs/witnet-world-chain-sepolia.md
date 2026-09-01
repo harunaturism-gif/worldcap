@@ -1,6 +1,6 @@
 # Witnet randomness on World Chain Sepolia
 
-Validated against current primary documentation on 2026-08-31.
+Validated against current primary sources on 2026-09-01.
 
 ## Confirmed
 
@@ -8,6 +8,7 @@ Validated against current primary documentation on 2026-08-31.
 - World Chain Sepolia is chain ID `4801` (`0x12c1`) and publishes the Alchemy public RPC: https://docs.world.org/world-chain/quick-start/info
 - Witnet documents a paid asynchronous `randomize()` request, status values, block-bound retrieval through `fetchRandomnessAfter`, and a typical fulfillment time of several minutes: https://docs.witnet.io/smart-contracts/guides/solidity-contracts/appliances/witnetrandomness
 - Witnet’s current multi-chain randomness address page does not list World Chain or World Chain Sepolia: https://docs.witnet.io/smart-contracts/witnet-randomness-oracle/contract-addresses
+- Witnet's official `witnet-solidity-bridge` deployment catalog at commit `3de82c7d201abfdf06ae2e1a2c97a38ab1819ed9` pins `worldchain:sepolia` to chain ID `4801`, but records `WitRandomnessV2` as the zero address and provides no `WitRandomnessV3` deployment: https://github.com/witnet/witnet-solidity-bridge/blob/3de82c7d201abfdf06ae2e1a2c97a38ab1819ed9/migrations/addresses.json
 
 ## Implemented boundary
 
@@ -20,4 +21,4 @@ Validated against current primary documentation on 2026-08-31.
 
 ## External boundary
 
-No deployment address, transaction, seed, or successful live integration is claimed. Live operation remains blocked until the current World Chain Sepolia Witnet contract address is confirmed through a primary/provider channel, bytecode is inspected, and a funded signer with a durable pre-broadcast transaction journal is configured and independently reviewed.
+No non-zero official randomness deployment, transaction, seed, or successful live integration is available to claim. Live operation remains blocked until Witnet publishes a current World Chain Sepolia randomness address through a primary/provider channel, bytecode is inspected, and a funded signer with a durable pre-broadcast transaction journal is configured and independently reviewed.
