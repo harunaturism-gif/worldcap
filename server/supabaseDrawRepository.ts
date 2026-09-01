@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { PersistenceConfig } from './config.js';
 import type { DrawRepository } from './drawRepository.js';
-import { DRAW_ALGORITHM_VERSION, DRAW_MANIFEST_VERSION, type DrawManifest, type DrawRecord, type PublicManifestEntry } from './drawTypes.js';
+import { DRAW_MANIFEST_VERSION, type DrawManifest, type DrawRecord, type PublicManifestEntry } from './drawTypes.js';
 import { parseUnitString } from './tokenUnits.js';
 
 function stringValue(value: unknown, field: string): string {
@@ -20,13 +20,19 @@ function parseDraw(value: Record<string, unknown>): DrawRecord {
   if (!Array.isArray(allowed) || !allowed.every((item) => typeof item === 'string')) throw new Error('invalid_draw_allowed_tiers');
   const eligibleTitleCount = parseUnitString(stringValue(value.eligible_title_count, 'eligible_count'));
   const winningIndex = value.winning_index === null ? null : parseUnitString(stringValue(value.winning_index, 'winning_index'));
+  const rawWinners = Array.isArray(value.winners) ? value.winners : [];
+  const winners = rawWinners.map((item) => {
+    if (typeof item !== 'object' || item === null || Array.isArray(item)) throw new Error('invalid_draw_winner');
+    const row = item as Record<string, unknown>;
+    return { ordinal: Number(row.ordinal), winningIndex: parseUnitString(stringValue(row.winning_index, 'winner_index')), winningTitleId: stringValue(row.title_id, 'winner_title'), payoutBasisPoints: Number(row.payout_basis_points), payoutUnits: parseUnitString(stringValue(row.payout_units, 'winner_payout')) };
+  });
   return {
-    id: stringValue(value.id, 'id'), campaignId: nullableString(value.campaign_id),
+    id: stringValue(value.id, 'id'), kind: (stringValue(value.kind, 'kind') === 'annual' ? 'ANNUAL_LEGACY' : stringValue(value.kind, 'kind').toUpperCase()) as DrawRecord['kind'], campaignId: nullableString(value.campaign_id),
     eligibilityScope: stringValue(value.eligibility_scope, 'eligibility_scope') as DrawRecord['eligibilityScope'],
     allowedTierCodes: allowed, opensAt: stringValue(value.opens_at, 'opens_at'), closesAt: stringValue(value.closes_at, 'closes_at'),
     status: stringValue(value.status, 'status').toUpperCase() as DrawRecord['status'], eligibleTitleCount,
     eligibilityCommitment: nullableString(value.eligibility_commitment), manifestVersion: DRAW_MANIFEST_VERSION,
-    algorithmVersion: DRAW_ALGORITHM_VERSION, randomnessProvider: nullableString(value.randomness_provider),
+    algorithmVersion: stringValue(value.algorithm_version, 'algorithm_version'), randomnessProvider: nullableString(value.randomness_provider), prizePoolUnits: parseUnitString(stringValue(value.prize_pool_units, 'prize_pool_units')), winners,
     randomnessRequestId: nullableString(value.randomness_request_id), randomnessSeed: nullableString(value.randomness_seed),
     winningIndex, winningTitleId: nullableString(value.winning_title_id), finalizedAt: nullableString(value.finalized_at),
     payoutStatus: stringValue(value.payout_status, 'payout_status') as DrawRecord['payoutStatus'],
@@ -67,9 +73,12 @@ class SupabaseReadOnlyDrawRepository implements DrawRepository {
   }
 
   async get(drawId: string): Promise<DrawRecord | null> {
-    const { data, error } = await this.client.from('draws').select('id,campaign_id,eligibility_scope,allowed_tier_codes,opens_at,closes_at,status,eligible_title_count,eligibility_commitment,manifest_version,algorithm_version,randomness_provider,randomness_request_id,randomness_seed,winning_index,winning_title_id,finalized_at,payout_status').eq('id', drawId).maybeSingle();
+    const { data, error } = await this.client.from('draws').select('id,kind,prize_pool_units,campaign_id,eligibility_scope,allowed_tier_codes,opens_at,closes_at,status,eligible_title_count,eligibility_commitment,manifest_version,algorithm_version,randomness_provider,randomness_request_id,randomness_seed,winning_index,winning_title_id,finalized_at,payout_status').eq('id', drawId).maybeSingle();
     if (error) throw new Error('draw_read_failed');
-    return data ? parseDraw(data as Record<string, unknown>) : null;
+    if (!data) return null;
+    const winnerRows = await this.client.from('draw_winners').select('ordinal,winning_index,title_id,payout_basis_points,payout_units').eq('draw_id', drawId).order('ordinal');
+    if (winnerRows.error) throw new Error('draw_winners_read_failed');
+    return parseDraw({ ...(data as Record<string, unknown>), winners: winnerRows.data ?? [] });
   }
 
   async getManifest(drawId: string): Promise<DrawManifest | null> {

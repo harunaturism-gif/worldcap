@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { DrawService } from './drawService.js';
+import { DRAW_ALGORITHM_VERSION } from './drawTypes.js';
 
 export type CoordinatorStatus = 'PREPARED' | 'REQUEST_BOUND' | 'RESOLVED' | 'FAILED';
 
@@ -63,7 +64,7 @@ export class DurableDrawCoordinator {
   ) {}
 
   async run(drawId: string): Promise<DrawCoordinatorJob> {
-    let job = await this.store.getOrCreate(drawId, this.provider, this.network, 'worldcap-draw-v1');
+    let job = await this.store.getOrCreate(drawId, this.provider, this.network, DRAW_ALGORITHM_VERSION);
     if (job.status === 'RESOLVED') return job;
     job.attemptCount += 1;
     job.lastAttemptAt = new Date().toISOString();

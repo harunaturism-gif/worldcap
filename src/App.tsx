@@ -19,7 +19,7 @@ function AuthenticatedApp({ session, logout }: { session: AppSession; logout: ()
   const notify = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(null), 2600); };
   return <AppShell session={session} tab={tab} onTab={setTab} onLogout={() => void logout()}>
     {tab === 'home' && <HomePage onNavigate={setTab} notify={notify} />}
-    {tab === 'titles' && <TitlesPage onNavigate={setTab} />}
+    {tab === 'titles' && <TitlesPage onNavigate={setTab} notify={notify} />}
     {tab === 'play' && <PlayPage onNavigate={setTab} notify={notify} />}
     {tab === 'social' && <SocialPage notify={notify} />}
     {tab === 'wallet' && <WalletPage />}

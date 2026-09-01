@@ -44,7 +44,8 @@ export class EconomyService {
   async snapshot(user: InternalUser) {
     const snapshot = await this.repository.getSnapshot(user.id);
     const totals = snapshot.allocations.reduce((current, row) => ({ ...current, [row.bucket]: current[row.bucket] + row.amountUnits }), {
-      monthly_prize_pool: 0n, annual_jackpot: 0n, platform_operations: 0n, commercial_growth: 0n,
+      cap_redemption_program: 0n, monthly_prize_pool: 0n, quarterly_jackpot: 0n, company_treasury: 0n, platform_operations: 0n,
+      annual_jackpot: 0n, commercial_growth: 0n,
     });
     return { ...snapshot, pools: totals, paymentMode: this.paymentMode(), paymentDisabledReason: this.paymentMode() === 'disabled' ? 'World Pay does not provide a testnet payment rail.' : null };
   }
@@ -57,5 +58,9 @@ export class EconomyService {
     const tier = scratchTiers.find((candidate) => sample.basisPoints < candidate.upperBoundBasisPoints);
     if (!tier) throw new Error('scratch_configuration_invalid');
     return this.repository.revealScratch(user, titleId, tier.prizeUnits, sample.reference, sample.provider);
+  }
+
+  async claimTitleCap(user: InternalUser, titleId: string) {
+    return this.repository.claimTitleCap(user, titleId);
   }
 }

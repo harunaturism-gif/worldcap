@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { InternalUser } from './appSession.js';
 import {
-  ACCESSIBLE_TIER_ID, ACTIVE_CAMPAIGN_ID, DEFAULT_SCRATCH_TIERS, GOLD_TIER_ID, PURPLE_TIER_ID, TITLE_PRICE_UNITS, type ActivityRecord, type AllocationRecord,
-  type CampaignRecord, type EconomySnapshotRecord, type LedgerRecord, type PurchaseCompletion,
+  ACCESSIBLE_TIER_ID, ACTIVE_CAMPAIGN_ID, DEFAULT_SCRATCH_TIERS, ECONOMIC_MODEL_VERSION, GOLD_TIER_ID, PURPLE_TIER_ID, TITLE_PRICE_UNITS, type ActivityRecord, type AllocationRecord,
+  type CampaignRecord, type CapRedemptionCompletion, type EconomySnapshotRecord, type LedgerRecord, type PurchaseCompletion,
   type OwnershipEventRecord, type PurchaseIntentRecord, type PurchaseRecord, type ScratchCompletion, type ScratchResultRecord,
   type ScratchTierConfig, type TitleRecord, type TitleTierRecord, type VerifiedPayment,
 } from './economyTypes.js';
 import { allocateWld } from './tokenUnits.js';
 import { assertGrossAllocation, assertScratchPreservesTitle, assertSimulatedWinningsNonSpendable } from './protocolInvariants.js';
+import { claimCapRedemption } from './economicsV1.js';
 
 export interface EconomyRepository {
   createPurchaseIntent(user: InternalUser, campaignId: string, tierId: string, quantity: number, recipient: string): Promise<PurchaseIntentRecord>;
@@ -16,6 +17,7 @@ export interface EconomyRepository {
   getSnapshot(userId: string): Promise<EconomySnapshotRecord>;
   revealScratch(user: InternalUser, titleId: string, prizeUnits: bigint, randomnessReference: string, provider: string): Promise<ScratchCompletion>;
   getScratchTiers(userId: string, titleId: string): Promise<ScratchTierConfig[]>;
+  claimTitleCap(user: InternalUser, titleId: string): Promise<CapRedemptionCompletion>;
 }
 
 export const ACTIVE_CAMPAIGN: CampaignRecord = {
@@ -26,7 +28,7 @@ export const ACTIVE_CAMPAIGN: CampaignRecord = {
   titlePriceUnits: TITLE_PRICE_UNITS,
   serialPrefix: 'SEP26',
   monthlyDrawAt: '2026-09-30T20:00:00.000Z',
-  annualDrawAt: '2026-12-30T20:00:00.000Z',
+  quarterlyDrawAt: '2026-12-30T20:00:00.000Z',
 };
 
 export const ACTIVE_TITLE_TIERS: TitleTierRecord[] = [
@@ -70,6 +72,7 @@ export class DevelopmentMemoryEconomyRepository implements EconomyRepository {
       totalUnits: tier.priceUnits * BigInt(quantity), recipient, token: 'WLD', status: 'pending',
       expiresAt: new Date(now.getTime() + 10 * 60_000).toISOString(), createdAt: now.toISOString(),
       completedPurchaseId: null, transactionId: null,
+      economicModelVersion: ECONOMIC_MODEL_VERSION,
     };
     this.intents.set(intent.reference, intent);
     return intent;
@@ -101,6 +104,7 @@ export class DevelopmentMemoryEconomyRepository implements EconomyRepository {
         quantity: intent.quantity, unitPriceUnits: intent.unitPriceUnits, totalUnits: intent.totalUnits,
         transactionId: payment.transactionId, transactionHash: payment.transactionHash,
         payerAddress: payment.from.toLowerCase(), createdAt, settlementMode: payment.settlementMode === 'demo' ? 'demo' : 'verified',
+        economicModelVersion: ECONOMIC_MODEL_VERSION,
       };
       const issued: TitleRecord[] = [];
       for (let index = 0; index < intent.quantity; index += 1) {
@@ -111,14 +115,16 @@ export class DevelopmentMemoryEconomyRepository implements EconomyRepository {
           purchaseId: purchase.id, ownerId: user.id, originalBuyerId: user.id, currentOwnerId: user.id, createdAt,
           scratchStatus: 'available', scratchResultId: null, drawEligible: true, futureRedemptionState: 'not_configured',
           lifecycleState: 'active', renewalState: 'not_eligible',
+          capRedemptionState: 'locked', capEntitlementUnits: tier.code === 'accessible' ? 120n : tier.code === 'purple' ? 400n : 900n,
         };
         this.titles.set(title.id, title); issued.push(title);
         this.ownershipEvents.push({ id: randomUUID(), titleId: title.id, eventType: 'issued', fromUserId: null, toUserId: user.id, purchaseId: purchase.id, createdAt });
       }
       const parts = allocateWld(intent.totalUnits);
-      const rows: Array<[AllocationRecord['bucket'], 60 | 10 | 20, bigint]> = [
-        ['monthly_prize_pool', 60, parts.monthly], ['annual_jackpot', 10, parts.annual],
-        ['platform_operations', 20, parts.platform], ['commercial_growth', 10, parts.commercial],
+      const rows: Array<[AllocationRecord['bucket'], 40 | 38 | 10 | 2, bigint]> = [
+        ['cap_redemption_program', 40, parts.capRedemption], ['monthly_prize_pool', 38, parts.monthly],
+        ['quarterly_jackpot', 10, parts.quarterly], ['company_treasury', 10, parts.company],
+        ['platform_operations', 2, parts.platform],
       ];
       const allocations: AllocationRecord[] = rows.map(([bucket, percentage, amountUnits]) => ({ id: randomUUID(), purchaseId: purchase.id, bucket, percentage, amountUnits }));
       assertGrossAllocation(intent.totalUnits, allocations);
@@ -175,6 +181,16 @@ export class DevelopmentMemoryEconomyRepository implements EconomyRepository {
       }
       assertScratchPreservesTitle(before, title);
       return { title, result, replayed: false };
+    });
+  }
+
+  async claimTitleCap(user: InternalUser, titleId: string): Promise<CapRedemptionCompletion> {
+    return this.mutex.run(() => {
+      const title = this.titles.get(titleId);
+      if (!title || title.currentOwnerId !== user.id) throw new Error('title_not_found');
+      const result = claimCapRedemption(title);
+      this.titles.set(title.id, result.title);
+      return { titleId, claimedUnits: result.claimedUnits, drawEligible: true, replayed: result.replayed };
     });
   }
 }

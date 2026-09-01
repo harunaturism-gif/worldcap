@@ -8,7 +8,10 @@ export const TITLE_PRICE_UNITS = 5_000_000_000_000_000_000n; // Purple default r
 export const MAX_TITLES_PER_PURCHASE = 10;
 
 export type PaymentMode = 'real' | 'development-fake' | 'beta-demo' | 'disabled';
-export type AllocationBucket = 'monthly_prize_pool' | 'annual_jackpot' | 'platform_operations' | 'commercial_growth';
+export const ECONOMIC_MODEL_VERSION = 'worldcap-40-38-10-10-2-v1' as const;
+export const LEGACY_ECONOMIC_MODEL_VERSION = 'legacy-60-10-20-10' as const;
+export type EconomicModelVersion = typeof ECONOMIC_MODEL_VERSION | typeof LEGACY_ECONOMIC_MODEL_VERSION;
+export type AllocationBucket = 'cap_redemption_program' | 'monthly_prize_pool' | 'quarterly_jackpot' | 'company_treasury' | 'platform_operations' | 'annual_jackpot' | 'commercial_growth';
 export type TitleTierCode = 'accessible' | 'purple' | 'gold';
 export type TitleLifecycleState = 'active' | 'draw_period_complete' | 'archived' | 'eligible_for_renewal';
 export type TitleRenewalState = 'not_eligible' | 'eligible' | 'redeemed' | 'expired';
@@ -41,7 +44,8 @@ export interface CampaignRecord {
   titlePriceUnits: bigint;
   serialPrefix: string;
   monthlyDrawAt: string;
-  annualDrawAt: string;
+  quarterlyDrawAt: string;
+  annualDrawAt?: string;
 }
 
 export interface PurchaseIntentRecord {
@@ -59,6 +63,7 @@ export interface PurchaseIntentRecord {
   createdAt: string;
   completedPurchaseId: string | null;
   transactionId: string | null;
+  economicModelVersion: EconomicModelVersion;
 }
 
 export interface VerifiedPayment {
@@ -90,6 +95,7 @@ export interface PurchaseRecord {
   payerAddress: string;
   createdAt: string;
   settlementMode: 'verified' | 'demo';
+  economicModelVersion: EconomicModelVersion;
 }
 
 export interface TitleRecord {
@@ -110,6 +116,8 @@ export interface TitleRecord {
   lifecycleState: TitleLifecycleState;
   renewalState: TitleRenewalState;
   futureRedemptionState: 'not_configured';
+  capRedemptionState: 'locked' | 'available' | 'claimed' | 'expired';
+  capEntitlementUnits: bigint;
 }
 
 export interface OwnershipEventRecord {
@@ -126,14 +134,14 @@ export interface AllocationRecord {
   id: string;
   purchaseId: string;
   bucket: AllocationBucket;
-  percentage: 60 | 10 | 20;
+  percentage: 60 | 40 | 38 | 20 | 10 | 2;
   amountUnits: bigint;
 }
 
 export interface LedgerRecord {
   id: string;
   userId: string;
-  classification: 'verified_purchase' | 'demo_purchase' | 'simulated_scratch_prize';
+  classification: 'verified_purchase' | 'demo_purchase' | 'simulated_scratch_prize' | 'simulated_draw_prize';
   direction: 'debit' | 'credit';
   amountUnits: bigint;
   spendable: boolean;
@@ -183,6 +191,13 @@ export interface PurchaseCompletion {
 export interface ScratchCompletion {
   title: TitleRecord;
   result: ScratchResultRecord;
+  replayed: boolean;
+}
+
+export interface CapRedemptionCompletion {
+  titleId: string;
+  claimedUnits: bigint;
+  drawEligible: true;
   replayed: boolean;
 }
 

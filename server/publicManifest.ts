@@ -1,12 +1,14 @@
 import { createHash } from 'node:crypto';
 import type { DrawManifest, DrawRecord, PublicManifestEntry } from './drawTypes.js';
 
-export const PUBLIC_DRAW_SCHEMA_VERSION = 'worldcap-public-draw-v2' as const;
+export const PUBLIC_DRAW_SCHEMA_VERSION = 'worldcap-public-draw-v3' as const;
 
 export interface PublicDrawArtifact {
   schemaVersion: typeof PUBLIC_DRAW_SCHEMA_VERSION;
   algorithmVersion: string;
   drawId: string;
+  drawKind: DrawRecord['kind'];
+  prizePoolUnits: string;
   campaignId: string;
   scope: string;
   closedAt: string;
@@ -20,8 +22,8 @@ function prefix(value: string): string { return `${Buffer.byteLength(value, 'utf
 
 export function canonicalArtifactContent(input: Omit<PublicDrawArtifact, 'artifactContentHash'>): string {
   const fields = [
-    'worldcap-public-artifact-content-v2', input.schemaVersion, input.algorithmVersion,
-    input.drawId, input.campaignId, input.scope, input.closedAt, input.eligibleCount,
+    'worldcap-public-artifact-content-v3', input.schemaVersion, input.algorithmVersion,
+    input.drawId, input.drawKind, input.prizePoolUnits, input.campaignId, input.scope, input.closedAt, input.eligibleCount,
     input.manifestRoot, String(input.entries.length),
   ];
   for (const entry of input.entries) {
@@ -41,6 +43,8 @@ export function createPublicDrawArtifact(draw: DrawRecord, manifest: DrawManifes
     schemaVersion: PUBLIC_DRAW_SCHEMA_VERSION,
     algorithmVersion: draw.algorithmVersion,
     drawId: draw.id,
+    drawKind: draw.kind,
+    prizePoolUnits: draw.prizePoolUnits.toString(),
     campaignId: draw.campaignId,
     scope: draw.eligibilityScope,
     closedAt: draw.finalizedAt,
@@ -54,7 +58,7 @@ export function createPublicDrawArtifact(draw: DrawRecord, manifest: DrawManifes
 export function serializePublicDrawArtifact(artifact: PublicDrawArtifact): string {
   return JSON.stringify({
     schemaVersion: artifact.schemaVersion, algorithmVersion: artifact.algorithmVersion,
-    drawId: artifact.drawId, campaignId: artifact.campaignId, scope: artifact.scope,
+    drawId: artifact.drawId, drawKind: artifact.drawKind, prizePoolUnits: artifact.prizePoolUnits, campaignId: artifact.campaignId, scope: artifact.scope,
     closedAt: artifact.closedAt, eligibleCount: artifact.eligibleCount,
     manifestRoot: artifact.manifestRoot, artifactContentHash: artifact.artifactContentHash,
     entries: artifact.entries.map((entry) => ({ index: entry.index, titleId: entry.titleId, serial: entry.serial, tier: entry.tier, campaignId: entry.campaignId })),
@@ -67,8 +71,9 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 export function parsePublicDrawArtifact(value: unknown): PublicDrawArtifact {
   if (!isObject(value) || value.schemaVersion !== PUBLIC_DRAW_SCHEMA_VERSION || !Array.isArray(value.entries)) throw new Error('public_artifact_invalid');
-  const required = ['algorithmVersion', 'drawId', 'campaignId', 'scope', 'closedAt', 'eligibleCount', 'manifestRoot', 'artifactContentHash'] as const;
+  const required = ['algorithmVersion', 'drawId', 'drawKind', 'prizePoolUnits', 'campaignId', 'scope', 'closedAt', 'eligibleCount', 'manifestRoot', 'artifactContentHash'] as const;
   for (const field of required) if (typeof value[field] !== 'string') throw new Error('public_artifact_invalid');
+  if (!['MONTHLY', 'QUARTERLY', 'ANNUAL_LEGACY'].includes(value.drawKind as string) || !/^(0|[1-9][0-9]*)$/.test(value.prizePoolUnits as string)) throw new Error('public_artifact_invalid');
   const entries = value.entries.map((item) => {
     if (!isObject(item)) throw new Error('public_artifact_invalid');
     for (const field of ['index', 'titleId', 'serial', 'tier', 'campaignId'] as const) if (typeof item[field] !== 'string') throw new Error('public_artifact_invalid');
@@ -77,6 +82,7 @@ export function parsePublicDrawArtifact(value: unknown): PublicDrawArtifact {
   const artifact = Object.freeze({
     schemaVersion: PUBLIC_DRAW_SCHEMA_VERSION,
     algorithmVersion: value.algorithmVersion as string, drawId: value.drawId as string,
+    drawKind: value.drawKind as DrawRecord['kind'], prizePoolUnits: value.prizePoolUnits as string,
     campaignId: value.campaignId as string, scope: value.scope as string, closedAt: value.closedAt as string,
     eligibleCount: value.eligibleCount as string, manifestRoot: value.manifestRoot as string,
     artifactContentHash: value.artifactContentHash as string, entries: Object.freeze(entries),

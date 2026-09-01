@@ -9,13 +9,14 @@ interface StoreValue {
   snapshot: EconomySnapshot | null;
   myTitles: TitleDto[];
   isLoading: boolean;
-  action: 'purchase' | 'scratch' | null;
+  action: 'purchase' | 'scratch' | 'cap-claim' | null;
   error: string | null;
   lastReveal: ScratchCompletionDto | null;
   memberPosts: MemberPost[];
   refresh: () => Promise<void>;
   buyTitles: (quantity: number, tierId: string) => Promise<{ ok: boolean; message: string }>;
   prepareScratch: (titleId: string) => Promise<ScratchCompletionDto | null>;
+  claimTitleCap: (titleId: string) => Promise<{ ok: boolean; message: string }>;
   showReveal: (outcome: ScratchCompletionDto) => void;
   clearLastReveal: () => void;
   createPost: (body: string) => boolean;
@@ -27,7 +28,7 @@ const StoreContext = createContext<StoreValue | null>(null);
 export function MvpStoreProvider({ children }: { session: AppSession; children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<EconomySnapshot | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [action, setAction] = useState<'purchase' | 'scratch' | null>(null);
+  const [action, setAction] = useState<'purchase' | 'scratch' | 'cap-claim' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastReveal, setLastReveal] = useState<ScratchCompletionDto | null>(null);
   const [memberPosts, setMemberPosts] = useState<MemberPost[]>([]);
@@ -74,6 +75,19 @@ export function MvpStoreProvider({ children }: { session: AppSession; children: 
     void refresh();
   }, [refresh]);
 
+  const claimTitleCap = useCallback(async (titleId: string) => {
+    setAction('cap-claim');
+    try {
+      const result = await EconomyApi.claimTitleCap(titleId);
+      await refresh();
+      return { ok: true, message: `${result.claimedUnits} simulated CAP claimed. Quarterly eligibility is unchanged.` };
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'CAP claim failed';
+      setError(message);
+      return { ok: false, message };
+    } finally { setAction(null); }
+  }, [refresh]);
+
   const createPost = useCallback((body: string) => {
     const clean = body.trim();
     if (!clean || clean.length > 240) return false;
@@ -86,7 +100,7 @@ export function MvpStoreProvider({ children }: { session: AppSession; children: 
   }, []);
 
   const myTitles = useMemo(() => snapshot?.titles ?? [], [snapshot]);
-  const value = useMemo<StoreValue>(() => ({ snapshot, myTitles, isLoading, action, error, lastReveal, memberPosts, refresh, buyTitles, prepareScratch, showReveal, clearLastReveal: () => setLastReveal(null), createPost, toggleReaction }), [action, buyTitles, createPost, error, isLoading, lastReveal, memberPosts, myTitles, prepareScratch, refresh, showReveal, snapshot, toggleReaction]);
+  const value = useMemo<StoreValue>(() => ({ snapshot, myTitles, isLoading, action, error, lastReveal, memberPosts, refresh, buyTitles, prepareScratch, claimTitleCap, showReveal, clearLastReveal: () => setLastReveal(null), createPost, toggleReaction }), [action, buyTitles, claimTitleCap, createPost, error, isLoading, lastReveal, memberPosts, myTitles, prepareScratch, refresh, showReveal, snapshot, toggleReaction]);
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 

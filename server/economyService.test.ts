@@ -8,7 +8,7 @@ import { signApplicationSession, serializeSessionCookie, type AppSessionConfig }
 import { createEconomyRouter } from './economyRoutes.js';
 import { DevelopmentMemoryEconomyRepository } from './economyRepository.js';
 import { EconomyService } from './economyService.js';
-import { ACCESSIBLE_TIER_ID, ACTIVE_CAMPAIGN_ID, GOLD_TIER_ID, TITLE_PRICE_UNITS, type PurchaseIntentRecord, type VerifiedPayment } from './economyTypes.js';
+import { ACCESSIBLE_TIER_ID, ACTIVE_CAMPAIGN_ID, ECONOMIC_MODEL_VERSION, GOLD_TIER_ID, TITLE_PRICE_UNITS, type PurchaseIntentRecord, type VerifiedPayment } from './economyTypes.js';
 import type { PaymentConfig, PaymentVerifier } from './paymentVerifier.js';
 import type { RandomnessProvider } from './randomness.js';
 
@@ -107,15 +107,16 @@ describe('economic vertical slice', () => {
     assert.deepEqual(results.map((item) => item.replayed).sort(), [false, true]); assert.equal(repository.purchases.size, 1); assert.equal(repository.titles.size, 3);
   });
 
-  it('allocates every integer unit exactly across 60/10/20/10', async () => {
+  it('allocates every integer unit exactly across 40/38/10/10/2', async () => {
     const { service, repository } = fixture(); const complete = await buy(service, userA, 3);
     const rows = repository.allocations.filter((row) => row.purchaseId === complete.purchase.id);
-    assert.deepEqual(rows.map((row) => row.percentage), [60, 10, 20, 10]); assert.equal(rows.reduce((sum, row) => sum + row.amountUnits, 0n), complete.purchase.totalUnits);
+    assert.deepEqual(rows.map((row) => row.percentage), [40, 38, 10, 10, 2]); assert.equal(rows.reduce((sum, row) => sum + row.amountUnits, 0n), complete.purchase.totalUnits);
+    assert.equal(complete.purchase.economicModelVersion, ECONOMIC_MODEL_VERSION);
   });
 
   it('derives pool values from persisted allocation rows', async () => {
     const { service } = fixture(); await buy(service, userA, 2); const snapshot = await service.snapshot(userA);
-    assert.equal(snapshot.pools.monthly_prize_pool, TITLE_PRICE_UNITS * 2n * 60n / 100n); assert.equal(snapshot.pools.annual_jackpot, TITLE_PRICE_UNITS * 2n * 10n / 100n);
+    assert.equal(snapshot.pools.monthly_prize_pool, TITLE_PRICE_UNITS * 2n * 38n / 100n); assert.equal(snapshot.pools.quarterly_jackpot, TITLE_PRICE_UNITS * 2n * 10n / 100n);
   });
 
   it('rejects unauthenticated economy requests', async () => {
@@ -157,6 +158,23 @@ describe('economic vertical slice', () => {
     const { service } = fixture(0); const complete = await buy(service, userA, 1); await service.revealScratch(userA, complete.titles[0]!.id); const snapshot = await service.snapshot(userA);
     const prize = snapshot.ledger.find((entry) => entry.classification === 'simulated_scratch_prize');
     assert.equal(prize?.spendable, false); assert.equal(snapshot.ledger.filter((entry) => entry.classification === 'verified_purchase').reduce((sum, entry) => sum + entry.amountUnits, 0n), TITLE_PRICE_UNITS);
+  });
+
+  it('keeps Title CAP locked before the relevant monthly draw resolves', async () => {
+    const { service } = fixture(); const complete = await buy(service, userA, 1);
+    assert.equal(complete.titles[0]?.capRedemptionState, 'locked');
+    await assert.rejects(service.claimTitleCap(userA, complete.titles[0]!.id), /cap_redemption_not_available/);
+  });
+
+  it('claims available CAP idempotently without changing quarterly eligibility', async () => {
+    const { service, repository } = fixture(); const complete = await buy(service, userA, 1); const title = complete.titles[0]!;
+    repository.titles.set(title.id, { ...title, capRedemptionState: 'available' });
+    const first = await service.claimTitleCap(userA, title.id);
+    const second = await service.claimTitleCap(userA, title.id);
+    assert.equal(first.replayed, false); assert.equal(second.replayed, true);
+    assert.equal(first.claimedUnits, title.capEntitlementUnits);
+    assert.equal(repository.titles.get(title.id)?.drawEligible, true);
+    assert.equal(repository.titles.get(title.id)?.capRedemptionState, 'claimed');
   });
 
   it('accepts a valid authenticated request without leaking token details', async () => {

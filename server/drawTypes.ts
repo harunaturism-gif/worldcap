@@ -1,14 +1,24 @@
 import type { TitleLifecycleState, TitleTierCode } from './economyTypes.js';
 
-export const DRAW_ALGORITHM_VERSION = 'worldcap-draw-v1' as const;
+export const DRAW_ALGORITHM_VERSION = 'worldcap-draw-v2-five-winner' as const;
 export const DRAW_MANIFEST_VERSION = 'worldcap-manifest-v1' as const;
 
 export type DrawStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'RANDOMNESS_PENDING' | 'RESOLVED' | 'SETTLED';
 export type DrawEligibilityScope = 'GLOBAL' | 'ACCESSIBLE' | 'PURPLE' | 'GOLD' | 'SPECIAL';
 export type DrawPayoutStatus = 'NOT_READY' | 'PENDING' | 'SETTLED';
+export type DrawKind = 'MONTHLY' | 'QUARTERLY' | 'ANNUAL_LEGACY';
+
+export interface DrawWinnerRecord {
+  ordinal: number;
+  winningIndex: bigint;
+  winningTitleId: string;
+  payoutBasisPoints: number;
+  payoutUnits: bigint;
+}
 
 export interface DrawRecord {
   id: string;
+  kind: DrawKind;
   campaignId: string | null;
   eligibilityScope: DrawEligibilityScope;
   allowedTierCodes: readonly string[];
@@ -18,10 +28,12 @@ export interface DrawRecord {
   eligibleTitleCount: bigint;
   eligibilityCommitment: string | null;
   manifestVersion: typeof DRAW_MANIFEST_VERSION;
-  algorithmVersion: typeof DRAW_ALGORITHM_VERSION;
+  algorithmVersion: string;
   randomnessProvider: string | null;
   randomnessRequestId: string | null;
   randomnessSeed: string | null;
+  prizePoolUnits: bigint;
+  winners: readonly DrawWinnerRecord[];
   winningIndex: bigint | null;
   winningTitleId: string | null;
   finalizedAt: string | null;
@@ -59,6 +71,7 @@ export interface DrawManifest {
 
 export interface DrawFairnessResponse {
   drawId: string;
+  kind: DrawKind;
   status: DrawStatus;
   eligibilityScope: DrawEligibilityScope;
   allowedTierCodes: readonly string[];
@@ -71,6 +84,13 @@ export interface DrawFairnessResponse {
   algorithmVersion: string;
   winningIndex: string | null;
   winningTitle: string | null;
+  winners: readonly {
+    ordinal: number;
+    winningIndex: string;
+    winningTitle: string;
+    payoutBasisPoints: number;
+    payoutUnits: string;
+  }[];
   verificationStatus: 'NOT_READY' | 'PENDING' | 'VERIFIED' | 'FAILED';
   payoutStatus: DrawPayoutStatus;
 }

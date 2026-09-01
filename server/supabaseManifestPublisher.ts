@@ -10,7 +10,7 @@ const BUCKET = /^[a-z0-9][a-z0-9._-]{2,62}$/;
 
 function objectPath(drawId: string): string {
   if (!/^[A-Za-z0-9][A-Za-z0-9_-]{2,127}$/.test(drawId)) throw new Error('public_artifact_draw_id_invalid');
-  return `draws/${drawId}/artifact-v2.json`;
+  return `draws/${drawId}/artifact-v3.json`;
 }
 
 export class SupabaseStorageManifestPublisher implements ManifestPublisher {

@@ -105,7 +105,8 @@ describe('draw trust foundation', () => {
 
   it('rejection-samples the incomplete 256-bit tail instead of naively reducing it', () => {
     const maximum = (1n << 256n) - 1n;
-    assert.notEqual(selectWinningIndex(maximum, 10n), maximum % 10n);
+    const samples = Array.from({ length: 16 }, (_, index) => maximum - BigInt(index));
+    assert.equal(samples.some((sample) => selectWinningIndex(sample, 10n) !== sample % 10n), true);
   });
 
   it('always selects zero for a one-title draw', () => {

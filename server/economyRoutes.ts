@@ -73,5 +73,11 @@ export function createEconomyRouter(service: EconomyService, sessionConfig: AppS
     try { return response.json(safeJson(await service.revealScratch(userFor(request), titleId))); }
     catch (error) { return response.status(errorStatus(error instanceof Error ? error.message : '')).json({ error: error instanceof Error ? error.message : 'Scratch rejected' }); }
   });
+  router.post('/titles/:titleId/cap-redemption/claim', createFixedWindowRateLimiter(10, 60_000), async (request, response) => {
+    const titleId = Array.isArray(request.params.titleId) ? request.params.titleId[0] : request.params.titleId;
+    if (!titleId || !UUID_PATTERN.test(titleId)) return response.status(400).json({ error: 'Invalid title' });
+    try { return response.json(safeJson(await service.claimTitleCap(userFor(request), titleId))); }
+    catch (error) { return response.status(errorStatus(error instanceof Error ? error.message : '')).json({ error: error instanceof Error ? error.message : 'CAP redemption rejected' }); }
+  });
   return router;
 }

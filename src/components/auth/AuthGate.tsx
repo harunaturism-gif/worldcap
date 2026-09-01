@@ -30,7 +30,7 @@ export function AuthGate({ children }: { children: (session: AppSession, logout:
       <div className="auth-mark"><Trophy size={31} strokeWidth={2.2} /></div>
       <p className="eyebrow"><Sparkles size={13} /> Built for World App</p>
       <h1>Every title has<br /><em>a story.</em></h1>
-      <p className="auth-intro">Collect individually numbered titles, reveal instant prizes, and stay in every monthly and annual draw.</p>
+      <p className="auth-intro">Collect individually numbered titles and stay eligible for monthly draws and the quarterly jackpot.</p>
       <div className="auth-points">
         <span><Check size={15} /> One verified human</span>
         <span><Check size={15} /> WLD-denominated</span>

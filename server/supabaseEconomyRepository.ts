@@ -8,7 +8,7 @@ import type {
   ScratchTierConfig, TitleRecord, TitleTierRecord, VerifiedPayment,
 } from './economyTypes.js';
 import { parseUnitString } from './tokenUnits.js';
-import { PURPLE_TIER_ID } from './economyTypes.js';
+import { ECONOMIC_MODEL_VERSION, LEGACY_ECONOMIC_MODEL_VERSION, PURPLE_TIER_ID } from './economyTypes.js';
 
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
 function stringField(row: Record<string, unknown>, key: string): string { const value = row[key]; if (typeof value !== 'string') throw new Error('Invalid persistence response'); return value; }
@@ -33,6 +33,7 @@ function parseIntent(value: unknown): PurchaseIntentRecord {
     recipient: stringField(value, 'recipient'), token: stringField(value, 'token') as 'WLD', status: stringField(value, 'status') as PurchaseIntentRecord['status'],
     expiresAt: stringField(value, 'expires_at'), createdAt: stringField(value, 'created_at'),
     completedPurchaseId: nullableString(value, 'completed_purchase_id'), transactionId: nullableString(value, 'transaction_id'),
+    economicModelVersion: optionalString(value, 'economic_model_version', LEGACY_ECONOMIC_MODEL_VERSION) as PurchaseIntentRecord['economicModelVersion'],
   };
 }
 
@@ -42,6 +43,7 @@ function parsePurchase(value: unknown): PurchaseRecord {
     id: stringField(value, 'id'), reference: stringField(value, 'reference'), userId: stringField(value, 'user_id'), campaignId: stringField(value, 'campaign_id'), tierId: optionalString(value, 'tier_id', PURPLE_TIER_ID),
     quantity: numberField(value, 'quantity'), unitPriceUnits: parseUnitString(value.unit_price_units), totalUnits: parseUnitString(value.total_units),
     transactionId: stringField(value, 'transaction_id'), transactionHash: stringField(value, 'transaction_hash'), payerAddress: stringField(value, 'payer_address'), createdAt: stringField(value, 'created_at'), settlementMode: optionalString(value, 'settlement_mode', 'verified') as PurchaseRecord['settlementMode'],
+    economicModelVersion: optionalString(value, 'economic_model_version', LEGACY_ECONOMIC_MODEL_VERSION) as PurchaseRecord['economicModelVersion'],
   };
 }
 
@@ -51,6 +53,7 @@ function parseTitle(value: unknown): TitleRecord {
     id: stringField(value, 'id'), serial: stringField(value, 'serial'), campaignId: stringField(value, 'campaign_id'), tierId: optionalString(value, 'tier_id', PURPLE_TIER_ID), tierCode: optionalString(value, 'tier_code', 'purple') as TitleRecord['tierCode'], tierName: optionalString(value, 'tier_name', 'Purple'), purchaseId: stringField(value, 'purchase_id'), ownerId: optionalString(value, 'current_owner_id', stringField(value, 'owner_id')), originalBuyerId: optionalString(value, 'original_buyer_id', stringField(value, 'owner_id')), currentOwnerId: optionalString(value, 'current_owner_id', stringField(value, 'owner_id')), createdAt: stringField(value, 'created_at'),
     scratchStatus: stringField(value, 'scratch_status') as TitleRecord['scratchStatus'], scratchResultId: nullableString(value, 'scratch_result_id'),
     drawEligible: true, lifecycleState: optionalString(value, 'lifecycle_state', 'active') as TitleRecord['lifecycleState'], renewalState: optionalString(value, 'renewal_state', 'not_eligible') as TitleRecord['renewalState'], futureRedemptionState: 'not_configured',
+    capRedemptionState: optionalString(value, 'cap_redemption_state', 'locked') as TitleRecord['capRedemptionState'], capEntitlementUnits: parseUnitString(value.cap_entitlement_units ?? '0'),
   };
 }
 
@@ -79,7 +82,7 @@ function parseSnapshot(value: unknown): EconomySnapshotRecord {
   const parsedCampaign: CampaignRecord = {
     id: stringField(campaign, 'id'), name: stringField(campaign, 'name'), monthLabel: stringField(campaign, 'month_label'), status: 'active',
     titlePriceUnits: parseUnitString(campaign.title_price_units), serialPrefix: stringField(campaign, 'serial_prefix'),
-    monthlyDrawAt: stringField(campaign, 'monthly_draw_at'), annualDrawAt: stringField(campaign, 'annual_draw_at'),
+    monthlyDrawAt: stringField(campaign, 'monthly_draw_at'), quarterlyDrawAt: optionalString(campaign, 'quarterly_draw_at', stringField(campaign, 'annual_draw_at')),
   };
   const titleTiers: TitleTierRecord[] = value.title_tiers.map((item) => {
     if (!isRecord(item)) throw new Error('Invalid title tier response');
@@ -87,7 +90,7 @@ function parseSnapshot(value: unknown): EconomySnapshotRecord {
   });
   const allocations: AllocationRecord[] = value.allocations.map((item) => {
     if (!isRecord(item)) throw new Error('Invalid allocation response');
-    return { id: stringField(item, 'id'), purchaseId: stringField(item, 'purchase_id'), bucket: stringField(item, 'bucket') as AllocationRecord['bucket'], percentage: numberField(item, 'percentage') as 60 | 10 | 20, amountUnits: parseUnitString(item.amount_units) };
+    return { id: stringField(item, 'id'), purchaseId: stringField(item, 'purchase_id'), bucket: stringField(item, 'bucket') as AllocationRecord['bucket'], percentage: numberField(item, 'percentage') as AllocationRecord['percentage'], amountUnits: parseUnitString(item.amount_units) };
   });
   const ledger: LedgerRecord[] = value.ledger.map((item) => {
     if (!isRecord(item) || typeof item.spendable !== 'boolean') throw new Error('Invalid ledger response');
@@ -120,7 +123,7 @@ class SupabaseEconomyRepository implements EconomyRepository {
     const tier = await this.client.from('title_tiers').select('price_units').eq('id', tierId).eq('campaign_id', campaignId).eq('status', 'active').single();
     if (tier.error || !tier.data) throw new Error('title_tier_not_found');
     const unitPriceUnits = parseUnitString(tier.data.price_units);
-    const { data, error } = await this.client.from('purchase_intents').insert({ user_id: user.id, campaign_id: campaignId, tier_id: tierId, quantity, unit_price_units: unitPriceUnits.toString(), total_units: (unitPriceUnits * BigInt(quantity)).toString(), recipient, token: 'WLD' }).select('*').single();
+    const { data, error } = await this.client.from('purchase_intents').insert({ user_id: user.id, campaign_id: campaignId, tier_id: tierId, quantity, unit_price_units: unitPriceUnits.toString(), total_units: (unitPriceUnits * BigInt(quantity)).toString(), recipient, token: 'WLD', economic_model_version: ECONOMIC_MODEL_VERSION }).select('*').single();
     if (error || !data) throw new Error('purchase_intent_failed');
     return parseIntent(data);
   }
@@ -138,7 +141,7 @@ class SupabaseEconomyRepository implements EconomyRepository {
     return parseScratchTiers(tier.data.scratch_config);
   }
   async completePurchase(user: InternalUser, intent: PurchaseIntentRecord, payment: VerifiedPayment) {
-    const rpc = payment.settlementMode === 'demo' ? 'worldcap_complete_demo_purchase' : 'worldprize_complete_purchase';
+    const rpc = payment.settlementMode === 'demo' ? 'worldcap_complete_demo_purchase' : 'worldcap_complete_purchase_economics_v1';
     const { data, error } = await this.client.rpc(rpc, { p_user_id: user.id, p_reference: intent.reference, p_transaction_id: payment.transactionId, p_transaction_hash: payment.transactionHash, p_payer_address: payment.from.toLowerCase() });
     if (error || !data) {
       const message = error?.message ?? '';
@@ -152,15 +155,37 @@ class SupabaseEconomyRepository implements EconomyRepository {
   async getSnapshot(userId: string) {
     const { data, error } = await this.client.rpc('worldprize_get_snapshot', { p_user_id: userId });
     if (error || !data) throw new Error('snapshot_failed');
-    const snapshot = parseSnapshot(data);
-    const demo = await this.client.from('purchases').select('id').eq('user_id', userId).eq('settlement_mode', 'demo');
-    if (demo.error) throw new Error('snapshot_failed');
-    const demoIds = new Set((demo.data ?? []).map((row) => row.id));
-    return { ...snapshot, purchases: snapshot.purchases.map((purchase): PurchaseRecord => demoIds.has(purchase.id) ? { ...purchase, settlementMode: 'demo' } : purchase) };
+    let snapshot = parseSnapshot(data);
+    if (snapshot.titles.length > 0) {
+      const caps = await this.client.from('title_cap_entitlements').select('title_id,redemption_state,entitlement_units').in('title_id', snapshot.titles.map((title) => title.id));
+      if (caps.error) throw new Error('snapshot_failed');
+      const byTitle = new Map((caps.data ?? []).map((cap) => [cap.title_id, cap]));
+      snapshot = { ...snapshot, titles: snapshot.titles.map((title) => {
+        const cap = byTitle.get(title.id);
+        return cap ? { ...title, capRedemptionState: cap.redemption_state as TitleRecord['capRedemptionState'], capEntitlementUnits: parseUnitString(cap.entitlement_units) } : title;
+      }) };
+    }
+    const purchaseMetadata = await this.client.from('purchases').select('id,settlement_mode,economic_model_version').eq('user_id', userId);
+    if (purchaseMetadata.error) throw new Error('snapshot_failed');
+    const byPurchase = new Map((purchaseMetadata.data ?? []).map((row) => [row.id, row]));
+    return { ...snapshot, purchases: snapshot.purchases.map((purchase): PurchaseRecord => {
+      const metadata = byPurchase.get(purchase.id);
+      return metadata ? { ...purchase, settlementMode: metadata.settlement_mode as PurchaseRecord['settlementMode'], economicModelVersion: metadata.economic_model_version as PurchaseRecord['economicModelVersion'] } : purchase;
+    }) };
   }
   async revealScratch(user: InternalUser, titleId: string, prizeUnits: bigint, randomnessReference: string, provider: string) {
     const { data, error } = await this.client.rpc('worldprize_reveal_scratch', { p_user_id: user.id, p_title_id: titleId, p_prize_units: prizeUnits.toString(), p_randomness_reference: randomnessReference, p_provider: provider });
     if (error || !data) throw new Error(error?.message.includes('title_not_found') ? 'title_not_found' : 'scratch_failed');
     return parseScratch(data);
+  }
+  async claimTitleCap(user: InternalUser, titleId: string) {
+    const { data, error } = await this.client.rpc('worldcap_claim_title_cap', { p_user_id: user.id, p_title_id: titleId });
+    if (error || !isRecord(data)) {
+      const message = error?.message ?? '';
+      if (message.includes('not_available')) throw new Error('cap_redemption_not_available');
+      if (message.includes('not_owned')) throw new Error('title_not_found');
+      throw new Error('cap_redemption_failed');
+    }
+    return { titleId: stringField(data, 'title_id'), claimedUnits: parseUnitString(data.claimed_units), drawEligible: true as const, replayed: data.replayed === true };
   }
 }

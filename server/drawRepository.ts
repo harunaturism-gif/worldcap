@@ -12,7 +12,7 @@ export interface DrawRepository {
 }
 
 function cloneDraw(draw: DrawRecord): DrawRecord {
-  return { ...draw, allowedTierCodes: [...draw.allowedTierCodes] };
+  return { ...draw, allowedTierCodes: [...draw.allowedTierCodes], winners: draw.winners.map((winner) => ({ ...winner })) };
 }
 
 function cloneManifest(manifest: DrawManifest): DrawManifest {
@@ -44,7 +44,7 @@ export class DevelopmentMemoryDrawRepository implements DrawRepository {
     if (existing.status !== 'DRAFT' && existing.status !== 'OPEN') {
       if (existing.eligibilityCommitment !== draw.eligibilityCommitment || existing.eligibleTitleCount !== draw.eligibleTitleCount) throw new Error('closed_draw_snapshot_immutable');
     }
-    if (draw.status !== 'RESOLVED' && draw.status !== 'SETTLED' && (draw.randomnessSeed !== null || draw.winningIndex !== null || draw.winningTitleId !== null)) throw new Error('winner_before_resolution');
+    if (draw.status !== 'RESOLVED' && draw.status !== 'SETTLED' && (draw.randomnessSeed !== null || draw.winningIndex !== null || draw.winningTitleId !== null || draw.winners.length !== 0)) throw new Error('winner_before_resolution');
     if (draw.status === 'RESOLVED' || draw.status === 'SETTLED') {
       const manifest = this.manifests.get(draw.id);
       if (!manifest || !verifyDraw(draw, manifest).verified) throw new Error('resolved_draw_verification_failed');

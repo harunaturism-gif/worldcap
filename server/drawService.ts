@@ -1,11 +1,12 @@
 import { buildDrawManifest } from './drawManifest.js';
 import type { DrawRandomnessProvider } from './drawRandomness.js';
 import type { DrawRepository } from './drawRepository.js';
-import { parseRandomnessSeed, selectWinningIndex } from './drawSelection.js';
+import { parseRandomnessSeed } from './drawSelection.js';
 import {
   DRAW_ALGORITHM_VERSION, DRAW_MANIFEST_VERSION, type DrawEligibilityCandidate, type DrawEligibilityScope,
   type DrawFairnessResponse, type DrawManifest, type DrawRecord,
 } from './drawTypes.js';
+import { resolveOrderedWinners } from './economicsV1.js';
 import { verifyDraw } from './verifyDraw.js';
 import { createPublicDrawArtifact, type PublicDrawArtifact } from './publicManifest.js';
 import { verifyDrawV2, type DrawVerificationV2 } from './verifyDrawV2.js';
@@ -37,14 +38,15 @@ export class DrawService {
     private readonly anchor?: { reader: CommitmentAnchorReader; required: boolean },
   ) {}
 
-  async createDraw(input: { id: string; campaignId: string; eligibilityScope: DrawEligibilityScope; allowedTierCodes: readonly string[]; opensAt: string; closesAt: string }): Promise<DrawRecord> {
+  async createDraw(input: { id: string; campaignId: string; kind?: DrawRecord['kind']; prizePoolUnits?: bigint; eligibilityScope: DrawEligibilityScope; allowedTierCodes: readonly string[]; opensAt: string; closesAt: string }): Promise<DrawRecord> {
     if (!input.id || !input.campaignId || input.allowedTierCodes.length === 0 || new Set(input.allowedTierCodes).size !== input.allowedTierCodes.length) throw new Error('draw_configuration_invalid');
     if (!Number.isFinite(Date.parse(input.opensAt)) || !Number.isFinite(Date.parse(input.closesAt)) || Date.parse(input.opensAt) >= Date.parse(input.closesAt)) throw new Error('draw_window_invalid');
     return this.repository.create({
-      ...input, allowedTierCodes: Object.freeze([...input.allowedTierCodes]), status: 'DRAFT', eligibleTitleCount: 0n,
+      ...input, kind: input.kind ?? 'ANNUAL_LEGACY', prizePoolUnits: input.prizePoolUnits ?? 0n,
+      allowedTierCodes: Object.freeze([...input.allowedTierCodes]), status: 'DRAFT', eligibleTitleCount: 0n,
       eligibilityCommitment: null, manifestVersion: DRAW_MANIFEST_VERSION, algorithmVersion: DRAW_ALGORITHM_VERSION,
       randomnessProvider: null, randomnessRequestId: null, randomnessSeed: null, winningIndex: null,
-      winningTitleId: null, finalizedAt: null, payoutStatus: 'NOT_READY',
+      winningTitleId: null, winners: Object.freeze([]), finalizedAt: null, payoutStatus: 'NOT_READY',
     });
   }
 
@@ -106,12 +108,19 @@ export class DrawService {
     if (result.requestId !== draw.randomnessRequestId || result.provider !== draw.randomnessProvider) throw new Error('randomness_substitution_rejected');
     const manifest = await this.repository.getManifest(drawId);
     if (!manifest || manifest.eligibilityCommitment !== draw.eligibilityCommitment) throw new Error('draw_manifest_unavailable');
-    const winningIndex = selectWinningIndex(parseRandomnessSeed(result.seed), draw.eligibleTitleCount);
-    const winner = manifest.entries[Number(winningIndex)];
-    if (!winner) throw new Error('winning_title_unavailable');
+    const winners = resolveOrderedWinners({
+      drawId: draw.id,
+      drawKind: draw.kind,
+      randomnessSeed: parseRandomnessSeed(result.seed),
+      entries: manifest.entries,
+      prizePoolUnits: draw.prizePoolUnits,
+    });
+    const firstWinner = winners[0];
+    if (!firstWinner) throw new Error('winning_title_unavailable');
     draw.randomnessSeed = result.seed.toLowerCase();
-    draw.winningIndex = winningIndex;
-    draw.winningTitleId = winner.titleId;
+    draw.winners = winners.map((winner) => ({ ...winner, winningTitleId: winner.titleId }));
+    draw.winningIndex = firstWinner.winningIndex;
+    draw.winningTitleId = firstWinner.titleId;
     draw.status = 'RESOLVED';
     draw.payoutStatus = 'PENDING';
     const updated = await this.repository.update(draw); operationalLog('randomness_fulfillment', { drawId, requestId: result.requestId, provider: result.provider }); operationalLog('draw_resolution', { drawId, status: 'resolved' }); return updated;
@@ -154,12 +163,14 @@ export class DrawService {
     const verification = manifest && draw.status === 'RESOLVED' ? verifyDraw(draw, manifest) : null;
     const winningTitle = verification?.winningTitle ?? null;
     return {
-      drawId: draw.id, status: draw.status, eligibilityScope: draw.eligibilityScope,
+      drawId: draw.id, kind: draw.kind, status: draw.status, eligibilityScope: draw.eligibilityScope,
       allowedTierCodes: [...draw.allowedTierCodes], eligibleCount: draw.eligibleTitleCount.toString(),
       snapshotCommitment: draw.eligibilityCommitment, manifestVersion: draw.manifestVersion,
       randomnessProvider: draw.randomnessProvider, randomnessRequestId: draw.randomnessRequestId, randomnessSeed: draw.randomnessSeed,
       algorithmVersion: draw.algorithmVersion, winningIndex: draw.winningIndex?.toString() ?? null,
-      winningTitle, verificationStatus: draw.status === 'RESOLVED' ? (verification?.verified ? 'VERIFIED' : 'FAILED') : draw.status === 'RANDOMNESS_PENDING' ? 'PENDING' : 'NOT_READY',
+      winningTitle,
+      winners: verification?.winners ?? [],
+      verificationStatus: draw.status === 'RESOLVED' ? (verification?.verified ? 'VERIFIED' : 'FAILED') : draw.status === 'RANDOMNESS_PENDING' ? 'PENDING' : 'NOT_READY',
       payoutStatus: draw.payoutStatus,
     };
   }
