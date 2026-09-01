@@ -1,6 +1,9 @@
 const HEX_64 = /^[0-9a-fA-F]{64}$/;
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const ZERO_ADDRESS = /^0x0{40}$/i;
+const WORLDCAP_APP_ID = 'app_2524a16fcc996eebbc76629eddcd0993';
+const WORLDCAP_RP_ID = 'rp_128e5d3a1f37d564';
+const WORLDCAP_ACTION = 'worldprize-login';
 
 const SERVER_SECRET_MARKERS = ['SECRET', 'PRIVATE', 'SERVICE_ROLE', 'SIGNING_KEY', 'API_KEY', 'TOKEN'];
 const DEVELOPMENT_FLAGS = [
@@ -41,10 +44,10 @@ export function validateEnvironment(environment, options = {}) {
   if (runtime !== 'beta' && runtime !== 'production') errors.push('WORLDPRIZE_ENV');
   require('NODE_ENV', environment.NODE_ENV === 'production');
   require('APP_ORIGIN', validHttpsOrigin(environment.APP_ORIGIN));
-  require('WORLD_RP_ID', /^rp_[A-Za-z0-9_-]{4,}$/.test(environment.WORLD_RP_ID ?? ''));
+  require('WORLD_RP_ID', environment.WORLD_RP_ID === WORLDCAP_RP_ID);
   require('WORLD_RP_SIGNING_KEY', HEX_64.test(environment.WORLD_RP_SIGNING_KEY ?? ''));
-  require('WORLD_ID_ACTION', environment.WORLD_ID_ACTION === 'worldprize-login');
-  require('WORLD_APP_ID', /^app_[A-Za-z0-9_-]{4,}$/.test(environment.WORLD_APP_ID ?? ''));
+  require('WORLD_ID_ACTION', environment.WORLD_ID_ACTION === WORLDCAP_ACTION);
+  require('WORLD_APP_ID', environment.WORLD_APP_ID === WORLDCAP_APP_ID);
   require('VITE_WORLD_APP_ID', environment.VITE_WORLD_APP_ID === environment.WORLD_APP_ID);
   require('SUPABASE_URL', validHttpsOrigin(environment.SUPABASE_URL));
   require('SUPABASE_SERVICE_ROLE_KEY', (environment.SUPABASE_SERVICE_ROLE_KEY?.length ?? 0) >= 32);

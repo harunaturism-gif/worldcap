@@ -2,6 +2,17 @@
 
 WorldCAP is a World App Mini App only. Browser-readable fairness routes are verification surfaces, not a standalone consumer product.
 
+Canonical public World Developer Portal identifiers:
+
+| Resource | Identifier |
+| --- | --- |
+| App | `app_2524a16fcc996eebbc76629eddcd0993` |
+| Relying party | `rp_128e5d3a1f37d564` |
+| Action | `worldprize-login` |
+| Action ID | `action_v4_300bca00e846cefc6d46b93776e8e870` |
+
+These are public routing identifiers, not secrets. The action and relying party are canonical and must not be duplicated.
+
 ## Browser-visible build variables
 
 | Variable | Beta value | Required | Notes |

@@ -4,8 +4,8 @@ import { validateEnvironment } from './environment-policy.mjs';
 
 const valid = {
   NODE_ENV: 'production', WORLDPRIZE_ENV: 'beta', APP_ORIGIN: 'https://worldcap-beta.vercel.app',
-  WORLD_RP_ID: 'rp_worldcap', WORLD_RP_SIGNING_KEY: 'ab'.repeat(32), WORLD_ID_ACTION: 'worldprize-login',
-  WORLD_APP_ID: 'app_worldcap', VITE_WORLD_APP_ID: 'app_worldcap',
+  WORLD_RP_ID: 'rp_128e5d3a1f37d564', WORLD_RP_SIGNING_KEY: 'ab'.repeat(32), WORLD_ID_ACTION: 'worldprize-login',
+  WORLD_APP_ID: 'app_2524a16fcc996eebbc76629eddcd0993', VITE_WORLD_APP_ID: 'app_2524a16fcc996eebbc76629eddcd0993',
   SUPABASE_URL: 'https://example.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 's'.repeat(32),
   APP_SESSION_SECRET: 'a'.repeat(32), APP_IDENTITY_SECRET: 'b'.repeat(32),
   ENABLE_DEV_AUTH: 'false', ENABLE_DEV_FAKE_PAYMENTS: 'false', ENABLE_DEV_MOCK_PERSISTENCE: 'false', ENABLE_DEV_DRAW_RANDOMNESS: 'false',
@@ -16,6 +16,10 @@ const valid = {
 };
 
 test('accepts a fail-closed Vercel beta configuration', () => assert.deepEqual(validateEnvironment(valid), []));
+test('rejects identifiers belonging to another Portal app or relying party', () => {
+  assert(validateEnvironment({ ...valid, WORLD_APP_ID: 'app_other', VITE_WORLD_APP_ID: 'app_other' }).includes('WORLD_APP_ID'));
+  assert(validateEnvironment({ ...valid, WORLD_RP_ID: 'rp_other' }).includes('WORLD_RP_ID'));
+});
 test('rejects browser secrets and development capabilities', () => {
   const failures = validateEnvironment({ ...valid, VITE_WORLD_RP_SIGNING_KEY: 'secret', ENABLE_DEV_DRAW_RANDOMNESS: 'true' });
   assert(failures.includes('browser_secret:VITE_WORLD_RP_SIGNING_KEY'));
