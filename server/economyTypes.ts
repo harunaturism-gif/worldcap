@@ -34,6 +34,8 @@ export interface TitleTierRecord {
   status: 'active';
   sortOrder: number;
   scratchTiers: ScratchTierConfig[];
+  capMetricVersion: string;
+  capEntitlementUnits: bigint;
 }
 
 export interface CampaignRecord {

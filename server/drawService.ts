@@ -42,7 +42,7 @@ export class DrawService {
     if (!input.id || !input.campaignId || input.allowedTierCodes.length === 0 || new Set(input.allowedTierCodes).size !== input.allowedTierCodes.length) throw new Error('draw_configuration_invalid');
     if (!Number.isFinite(Date.parse(input.opensAt)) || !Number.isFinite(Date.parse(input.closesAt)) || Date.parse(input.opensAt) >= Date.parse(input.closesAt)) throw new Error('draw_window_invalid');
     return this.repository.create({
-      ...input, kind: input.kind ?? 'ANNUAL_LEGACY', prizePoolUnits: input.prizePoolUnits ?? 0n,
+      ...input, kind: input.kind ?? 'QUARTERLY', prizePoolUnits: input.prizePoolUnits ?? 0n,
       allowedTierCodes: Object.freeze([...input.allowedTierCodes]), status: 'DRAFT', eligibleTitleCount: 0n,
       eligibilityCommitment: null, manifestVersion: DRAW_MANIFEST_VERSION, algorithmVersion: DRAW_ALGORITHM_VERSION,
       randomnessProvider: null, randomnessRequestId: null, randomnessSeed: null, winningIndex: null,

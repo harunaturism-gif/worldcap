@@ -93,6 +93,7 @@ export function computeCapEntitlementCommitment(input: CapEntitlementCommitmentI
   return `sha256:${createHash('sha256').update(canonical, 'utf8').digest('hex')}`;
 }
 
+/** @deprecated Historical periodic V1 helper. New claims use YYYY-MM UTC Monthly Human Claim V2. */
 export function humanClaimPeriodIndex(startsAt: Date, now: Date, periodSeconds: number): bigint {
   if (!Number.isSafeInteger(periodSeconds) || periodSeconds < 3600) throw new Error('cap_claim_period_invalid');
   const startMs = startsAt.getTime();

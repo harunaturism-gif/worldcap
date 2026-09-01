@@ -32,9 +32,9 @@ export const ACTIVE_CAMPAIGN: CampaignRecord = {
 };
 
 export const ACTIVE_TITLE_TIERS: TitleTierRecord[] = [
-  { id: ACCESSIBLE_TIER_ID, campaignId: ACTIVE_CAMPAIGN_ID, code: 'accessible', name: 'Accessible', priceUnits: 500_000_000_000_000_000n, skin: 'accessible', status: 'active', sortOrder: 1, scratchTiers: DEFAULT_SCRATCH_TIERS },
-  { id: PURPLE_TIER_ID, campaignId: ACTIVE_CAMPAIGN_ID, code: 'purple', name: 'Purple', priceUnits: TITLE_PRICE_UNITS, skin: 'purple', status: 'active', sortOrder: 2, scratchTiers: DEFAULT_SCRATCH_TIERS },
-  { id: GOLD_TIER_ID, campaignId: ACTIVE_CAMPAIGN_ID, code: 'gold', name: 'Gold', priceUnits: 20_000_000_000_000_000_000n, skin: 'gold', status: 'active', sortOrder: 3, scratchTiers: DEFAULT_SCRATCH_TIERS },
+  { id: ACCESSIBLE_TIER_ID, campaignId: ACTIVE_CAMPAIGN_ID, code: 'accessible', name: 'Accessible', priceUnits: 500_000_000_000_000_000n, skin: 'accessible', status: 'active', sortOrder: 1, scratchTiers: DEFAULT_SCRATCH_TIERS, capMetricVersion: 'development-campaign-fixture-v1', capEntitlementUnits: 120n },
+  { id: PURPLE_TIER_ID, campaignId: ACTIVE_CAMPAIGN_ID, code: 'purple', name: 'Purple', priceUnits: TITLE_PRICE_UNITS, skin: 'purple', status: 'active', sortOrder: 2, scratchTiers: DEFAULT_SCRATCH_TIERS, capMetricVersion: 'development-campaign-fixture-v1', capEntitlementUnits: 400n },
+  { id: GOLD_TIER_ID, campaignId: ACTIVE_CAMPAIGN_ID, code: 'gold', name: 'Gold', priceUnits: 20_000_000_000_000_000_000n, skin: 'gold', status: 'active', sortOrder: 3, scratchTiers: DEFAULT_SCRATCH_TIERS, capMetricVersion: 'development-campaign-fixture-v1', capEntitlementUnits: 900n },
 ];
 
 class AsyncMutex {
@@ -115,7 +115,7 @@ export class DevelopmentMemoryEconomyRepository implements EconomyRepository {
           purchaseId: purchase.id, ownerId: user.id, originalBuyerId: user.id, currentOwnerId: user.id, createdAt,
           scratchStatus: 'available', scratchResultId: null, drawEligible: true, futureRedemptionState: 'not_configured',
           lifecycleState: 'active', renewalState: 'not_eligible',
-          capRedemptionState: 'locked', capEntitlementUnits: tier.code === 'accessible' ? 120n : tier.code === 'purple' ? 400n : 900n,
+          capRedemptionState: 'locked', capEntitlementUnits: tier.capEntitlementUnits,
         };
         this.titles.set(title.id, title); issued.push(title);
         this.ownershipEvents.push({ id: randomUUID(), titleId: title.id, eventType: 'issued', fromUserId: null, toUserId: user.id, purchaseId: purchase.id, createdAt });

@@ -30,6 +30,10 @@ import { operationalLog } from './structuredLogger.js';
 import { createCommitmentAnchorConfig, ViemCommitmentAnchorReader } from './commitmentAnchor.js';
 import { createSupabaseReconciliationStore, PaymentReconciliationWorker } from './paymentReconciliation.js';
 import { createSupabaseManifestPublication } from './supabaseManifestPublisher.js';
+import { DevelopmentMemoryGenesisCapRepository } from './genesisCapGrowth.js';
+import { createFounderControlRouter, createGenesisCapRouter, createPublicCapFairnessRouter, parseFounderUserIds } from './genesisCapRoutes.js';
+import type { GenesisCapRepository } from './genesisCapTypes.js';
+import { createSupabaseGenesisCapRepository } from './supabaseGenesisCapRepository.js';
 
 const rootEnv = fileURLToPath(new URL('../.env', import.meta.url));
 const modeEnv = fileURLToPath(new URL(`../.env.${process.env.NODE_ENV ?? 'development'}`, import.meta.url));
@@ -45,6 +49,7 @@ const appSessionConfig = createAppSessionConfig(process.env);
 const persistenceConfig = createPersistenceConfig(process.env);
 const paymentConfig = createPaymentConfig(process.env);
 const runtimePolicy = createRuntimePolicy(process.env);
+const founderUserIds = parseFounderUserIds(process.env);
 const commitmentAnchorConfig = createCommitmentAnchorConfig(process.env);
 const devAuthEnabled = isDevelopmentAuthEnabled(process.env);
 const isProductionProcess = process.env.NODE_ENV !== 'development';
@@ -71,6 +76,20 @@ if (paymentConfig?.runtime === 'production') paymentVerifier = new WorldDevelope
 const economyService = economyRepository && paymentVerifier && paymentConfig
   ? new EconomyService(economyRepository, paymentVerifier, new LocalRandomnessProvider(), paymentConfig)
   : null;
+let genesisCapRepository: GenesisCapRepository | null = null;
+if (persistenceConfig?.mode === 'development-memory' && economyRepository) {
+  genesisCapRepository = new DevelopmentMemoryGenesisCapRepository({
+    titleAccounting: async (userId) => {
+      const snapshot = await economyRepository!.getSnapshot(userId);
+      return snapshot.titles.reduce((totals, title) => ({
+        lockedUnits: totals.lockedUnits + (title.capRedemptionState === 'locked' ? title.capEntitlementUnits : 0n),
+        availableUnits: totals.availableUnits + (title.capRedemptionState === 'available' ? title.capEntitlementUnits : 0n),
+        claimedUnits: totals.claimedUnits + (title.capRedemptionState === 'claimed' ? title.capEntitlementUnits : 0n),
+      }), { lockedUnits: 0n, availableUnits: 0n, claimedUnits: 0n });
+    },
+  });
+}
+if (persistenceConfig?.mode === 'supabase') genesisCapRepository = createSupabaseGenesisCapRepository(persistenceConfig);
 const workerId = `worldcap-${process.pid}`;
 const reconciliationStore = persistenceConfig?.mode === 'supabase' ? createSupabaseReconciliationStore(persistenceConfig, workerId) : null;
 let drawRepository: DrawRepository | null = null;
@@ -93,6 +112,10 @@ async function probePersistence(): Promise<boolean> {
 }
 
 app.disable('x-powered-by');
+app.use('/api/draws', (request, response, next) => {
+  if (request.method === 'GET') response.setHeader('Access-Control-Allow-Origin', '*');
+  return next();
+});
 app.use(createOperationalRouter({
   runtime: runtimePolicy.runtime,
   configurationValid: Boolean(worldIdConfig && appSessionConfig && persistenceConfig && paymentConfig),
@@ -106,10 +129,15 @@ app.get('/api/health', (_request, response) => response.json({
   authConfigured: Boolean((worldIdConfig || devAuthEnabled) && appSessionConfig && identityRepository),
   persistence: persistenceConfig?.mode ?? 'unconfigured',
   paymentMode: economyService?.paymentMode() ?? 'disabled',
-  scratchSettlement: 'simulated',
+  instantGame: 'monthly-human-claim-v2',
+  capAccounting: 'simulated',
 }));
 
-app.use(['/api/auth', '/api/economy'], (request, response, next) => {
+app.use(['/api/auth', '/api/economy', '/api/cap', '/api/founder'], (request, response, next) => {
+  if (request.originalUrl.startsWith('/api/cap/fairness/') && request.method === 'GET') {
+    response.setHeader('Access-Control-Allow-Origin', '*');
+    return next();
+  }
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('Vary', 'Origin');
   if (!appSessionConfig || !isExpectedBrowserOrigin(request.headers.origin, appSessionConfig.appOrigin)) {
@@ -129,6 +157,7 @@ app.use('/api/auth/session-rp-context', createFixedWindowRateLimiter(10, 60_000)
 app.use('/api/auth/verify', createFixedWindowRateLimiter(5, 60_000));
 app.use('/api/auth/dev-session', createFixedWindowRateLimiter(10, 60_000));
 app.use('/api/auth', express.json({ limit: '16kb', strict: true }));
+app.use(['/api/cap', '/api/founder'], express.json({ limit: '16kb', strict: true }));
 
 app.post('/api/auth/dev-session', async (_request, response) => {
   if (!devAuthEnabled || persistenceConfig?.mode !== 'development-memory' || !appSessionConfig || !identityRepository) return response.status(404).json({ error: 'Not found' });
@@ -184,6 +213,9 @@ app.post('/api/auth/logout', (_request, response) => {
 
 if (economyService && appSessionConfig) app.use('/api/economy', createEconomyRouter(economyService, appSessionConfig, reconciliationStore ?? undefined));
 if (drawService) app.use('/api/draws', createDrawFairnessRouter(drawService));
+if (genesisCapRepository) app.use('/api/cap/fairness', createPublicCapFairnessRouter(genesisCapRepository));
+if (genesisCapRepository && appSessionConfig) app.use('/api/cap', createGenesisCapRouter(genesisCapRepository, appSessionConfig));
+if (genesisCapRepository && appSessionConfig) app.use('/api/founder', createFounderControlRouter(genesisCapRepository, appSessionConfig, founderUserIds));
 
 if (process.env.ENABLE_BACKGROUND_WORKERS === 'true') {
   if (runtimePolicy.runtime === 'development' || !reconciliationStore || !economyRepository || !paymentVerifier || !persistenceConfig || persistenceConfig.mode !== 'supabase') throw new Error('background_workers_not_configured');

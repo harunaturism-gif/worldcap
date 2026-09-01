@@ -10,7 +10,9 @@
     "build": "npm run build:web && npm run build:server",
     "build:web": "vite build",
     "build:server": "tsc -p server/tsconfig.json",
-    "typecheck": "tsc --noEmit && tsc -p server/tsconfig.json --noEmit",
+    "typecheck": "npm run typecheck:web && npm run typecheck:server",
+    "typecheck:web": "tsc --noEmit",
+    "typecheck:server": "tsc -p server/tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "tsx --test src/domains/**/*.test.ts server/*.test.ts",
     "start:server": "cross-env NODE_ENV=production node server/dist/index.js"

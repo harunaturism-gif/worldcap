@@ -1,5 +1,5 @@
 import type { InternalUser } from './appSession.js';
-import { ACTIVE_CAMPAIGN_ID, MAX_TITLES_PER_PURCHASE, PURPLE_TIER_ID, type PaymentMode } from './economyTypes.js';
+import { ACTIVE_CAMPAIGN_ID, MAX_TITLES_PER_PURCHASE, PURPLE_TIER_ID, type PaymentMode, type ScratchCompletion } from './economyTypes.js';
 import type { EconomyRepository } from './economyRepository.js';
 import type { PaymentConfig, PaymentVerifier } from './paymentVerifier.js';
 import { assertVerifiedPayment } from './paymentVerifier.js';
@@ -50,14 +50,11 @@ export class EconomyService {
     return { ...snapshot, pools: totals, paymentMode: this.paymentMode(), paymentDisabledReason: this.paymentMode() === 'disabled' ? 'World Pay does not provide a testnet payment rail.' : null };
   }
 
-  async revealScratch(user: InternalUser, titleId: string) {
-    // Before real settlement, validate configured expected scratch + draw liability
-    // against the funded monthly allocation rather than merely an accounting pool.
-    const scratchTiers = await this.repository.getScratchTiers(user.id, titleId);
-    const sample = await this.randomness.sample();
-    const tier = scratchTiers.find((candidate) => sample.basisPoints < candidate.upperBoundBasisPoints);
-    if (!tier) throw new Error('scratch_configuration_invalid');
-    return this.repository.revealScratch(user, titleId, tier.prizeUnits, sample.reference, sample.provider);
+  async revealScratch(user: InternalUser, titleId: string): Promise<ScratchCompletion> {
+    void user; void titleId; void this.randomness;
+    // Paid scratch was superseded by free Monthly Human Claim V2. Historical
+    // results remain readable, but new liabilities cannot enter via this route.
+    throw new Error('legacy_scratch_unavailable');
   }
 
   async claimTitleCap(user: InternalUser, titleId: string) {

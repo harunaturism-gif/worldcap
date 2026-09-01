@@ -131,33 +131,38 @@ describe('economic vertical slice', () => {
   it('never exposes another user private ownership', async () => {
     const { service } = fixture(); const complete = await buy(service, userA, 1); const other = await service.snapshot(userB);
     assert.equal(other.titles.length, 0); assert.equal(other.purchases.length, 0); assert.equal(other.ledger.length, 0);
-    await assert.rejects(service.revealScratch(userB, complete.titles[0]!.id), /title_not_found/);
+    await assert.rejects(service.revealScratch(userB, complete.titles[0]!.id), /legacy_scratch_unavailable/);
   });
 
-  it('persists a scratch result against the title', async () => {
-    const { service } = fixture(500); const complete = await buy(service, userA, 1); const scratched = await service.revealScratch(userA, complete.titles[0]!.id); const snapshot = await service.snapshot(userA);
+  it('keeps historical repository scratch results readable and persisted', async () => {
+    const { service, repository } = fixture(500); const complete = await buy(service, userA, 1); const scratched = await repository.revealScratch(userA, complete.titles[0]!.id, 0n, 'legacy-fixture', 'test'); const snapshot = await service.snapshot(userA);
     assert.equal(scratched.title.scratchStatus, 'revealed'); assert.equal(snapshot.scratchResults[0]?.id, scratched.result.id);
   });
 
-  it('returns the original scratch result on retry instead of rerolling', async () => {
-    const { service } = fixture(0); const complete = await buy(service, userA, 1); const first = await service.revealScratch(userA, complete.titles[0]!.id); const second = await service.revealScratch(userA, complete.titles[0]!.id);
+  it('returns the original historical scratch result on repository retry', async () => {
+    const { service, repository } = fixture(0); const complete = await buy(service, userA, 1); const first = await repository.revealScratch(userA, complete.titles[0]!.id, 0n, 'legacy-first', 'test'); const second = await repository.revealScratch(userA, complete.titles[0]!.id, 100n, 'legacy-second', 'test');
     assert.equal(second.replayed, true); assert.deepEqual(second.result, first.result);
   });
 
-  it('cannot create a second scratch record for the same title', async () => {
-    const { service, repository } = fixture(0); const complete = await buy(service, userA, 1); await Promise.all([service.revealScratch(userA, complete.titles[0]!.id), service.revealScratch(userA, complete.titles[0]!.id)]);
+  it('cannot create a second historical scratch record for the same title', async () => {
+    const { service, repository } = fixture(0); const complete = await buy(service, userA, 1); await Promise.all([repository.revealScratch(userA, complete.titles[0]!.id, 0n, 'legacy-a', 'test'), repository.revealScratch(userA, complete.titles[0]!.id, 0n, 'legacy-b', 'test')]);
     assert.equal(repository.scratchResults.size, 1);
   });
 
-  it('keeps a scratched title draw eligible', async () => {
-    const { service } = fixture(); const complete = await buy(service, userA, 1); const scratched = await service.revealScratch(userA, complete.titles[0]!.id);
+  it('keeps a historical scratched title draw eligible', async () => {
+    const { service, repository } = fixture(); const complete = await buy(service, userA, 1); const scratched = await repository.revealScratch(userA, complete.titles[0]!.id, 0n, 'legacy-draw', 'test');
     assert.equal(scratched.title.drawEligible, true);
   });
 
-  it('does not convert simulated winnings into real or spendable WLD', async () => {
-    const { service } = fixture(0); const complete = await buy(service, userA, 1); await service.revealScratch(userA, complete.titles[0]!.id); const snapshot = await service.snapshot(userA);
+  it('does not convert historical simulated winnings into spendable WLD', async () => {
+    const { service, repository } = fixture(0); const complete = await buy(service, userA, 1); await repository.revealScratch(userA, complete.titles[0]!.id, 10n, 'legacy-prize', 'test'); const snapshot = await service.snapshot(userA);
     const prize = snapshot.ledger.find((entry) => entry.classification === 'simulated_scratch_prize');
     assert.equal(prize?.spendable, false); assert.equal(snapshot.ledger.filter((entry) => entry.classification === 'verified_purchase').reduce((sum, entry) => sum + entry.amountUnits, 0n), TITLE_PRICE_UNITS);
+  });
+
+  it('fails closed for new paid scratch liabilities', async () => {
+    const { service } = fixture(); const complete = await buy(service, userA, 1);
+    await assert.rejects(service.revealScratch(userA, complete.titles[0]!.id), /legacy_scratch_unavailable/);
   });
 
   it('keeps Title CAP locked before the relevant monthly draw resolves', async () => {

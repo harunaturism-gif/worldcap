@@ -1,5 +1,5 @@
-export type VaultType = 'MONTHLY_PRIZE' | 'ANNUAL_JACKPOT' | 'PLATFORM' | 'GROWTH' | 'SCRATCH_RESERVE';
-export type PrizeVaultType = Extract<VaultType, 'MONTHLY_PRIZE' | 'ANNUAL_JACKPOT' | 'SCRATCH_RESERVE'>;
+export type VaultType = 'MONTHLY_PRIZE' | 'QUARTERLY_JACKPOT' | 'ANNUAL_JACKPOT_LEGACY' | 'PLATFORM' | 'GROWTH' | 'SCRATCH_RESERVE_LEGACY';
+export type PrizeVaultType = Extract<VaultType, 'MONTHLY_PRIZE' | 'QUARTERLY_JACKPOT' | 'ANNUAL_JACKPOT_LEGACY' | 'SCRATCH_RESERVE_LEGACY'>;
 
 export interface VaultSnapshot {
   id: string;
@@ -18,7 +18,7 @@ export function createVault(input: Omit<VaultSnapshot, 'availableAmountUnits'>):
 }
 
 export function isPrizeVault(vaultType: VaultType): vaultType is PrizeVaultType {
-  return vaultType === 'MONTHLY_PRIZE' || vaultType === 'ANNUAL_JACKPOT' || vaultType === 'SCRATCH_RESERVE';
+  return vaultType === 'MONTHLY_PRIZE' || vaultType === 'QUARTERLY_JACKPOT' || vaultType === 'ANNUAL_JACKPOT_LEGACY' || vaultType === 'SCRATCH_RESERVE_LEGACY';
 }
 
 export function totalPrizeFunding(vaults: readonly VaultSnapshot[]): bigint {

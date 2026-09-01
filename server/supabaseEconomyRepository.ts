@@ -86,7 +86,7 @@ function parseSnapshot(value: unknown): EconomySnapshotRecord {
   };
   const titleTiers: TitleTierRecord[] = value.title_tiers.map((item) => {
     if (!isRecord(item)) throw new Error('Invalid title tier response');
-    return { id: stringField(item, 'id'), campaignId: stringField(item, 'campaign_id'), code: stringField(item, 'code') as TitleTierRecord['code'], name: stringField(item, 'name'), priceUnits: parseUnitString(item.price_units), skin: stringField(item, 'skin') as TitleTierRecord['skin'], status: 'active', sortOrder: numberField(item, 'sort_order'), scratchTiers: parseScratchTiers(item.scratch_config) };
+    return { id: stringField(item, 'id'), campaignId: stringField(item, 'campaign_id'), code: stringField(item, 'code') as TitleTierRecord['code'], name: stringField(item, 'name'), priceUnits: parseUnitString(item.price_units), skin: stringField(item, 'skin') as TitleTierRecord['skin'], status: 'active', sortOrder: numberField(item, 'sort_order'), scratchTiers: parseScratchTiers(item.scratch_config), capMetricVersion: 'supabase-published-metric', capEntitlementUnits: 0n };
   });
   const allocations: AllocationRecord[] = value.allocations.map((item) => {
     if (!isRecord(item)) throw new Error('Invalid allocation response');
