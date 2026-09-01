@@ -29,8 +29,15 @@ begin
   select array_agg(distinct routine_name order by routine_name)
   into v_browser_mutations
   from information_schema.routine_privileges
+  join pg_proc procedure
+    on procedure.proname = routine_name
+  join pg_namespace namespace
+    on namespace.oid = procedure.pronamespace
+   and namespace.nspname = routine_schema
   where routine_schema = 'public'
     and routine_name like 'worldcap_%'
+    and procedure.prorettype <> 'trigger'::regtype
+    and routine_name not in ('worldcap_select_winning_index')
     and grantee in ('anon', 'authenticated', 'PUBLIC')
     and privilege_type = 'EXECUTE';
   if v_browser_mutations is not null then raise exception 'browser_rpc_execute_grants:%', v_browser_mutations; end if;
