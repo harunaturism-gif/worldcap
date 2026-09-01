@@ -21,7 +21,7 @@ The root `server.ts` exports Express as the Vercel Node entrypoint. Vite builds 
 7. `npm run build:web`
 8. `npm run build:server`
 9. `forge test --root contracts` when Foundry is available
-10. Apply and verify beta Supabase migrations through `202609010009_cap_domain_v1.sql` using `supabase/verify-beta.sql`.
+10. Apply and verify beta Supabase migrations through `202609010010_economics_five_winner_quarterly_v1.sql` using `supabase/verify-beta.sql`.
 
 Configure Preview variables from `docs/environment-matrix.md`. Add secrets through Vercel sensitive environment variables; never pass them in command arguments or commit local `.env` files.
 

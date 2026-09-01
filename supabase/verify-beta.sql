@@ -13,7 +13,7 @@ begin
   from (values
     ('users'), ('campaigns'), ('title_tiers'), ('titles'), ('purchases'),
     ('draws'), ('draw_manifests'), ('draw_coordinator_jobs'),
-    ('payment_reconciliation_jobs'), ('cap_campaign_metrics'),
+    ('payment_reconciliation_jobs'), ('draw_winners'), ('cap_campaign_metrics'),
     ('cap_tier_entitlements'), ('title_cap_entitlements'), ('cap_accounts'),
     ('cap_human_claim_epochs'), ('cap_human_claims'), ('cap_locks')
   ) as required(name)
@@ -52,7 +52,7 @@ begin
     ('202608300001'), ('202608310001'), ('202608310002'), ('202608310003'),
     ('202609010001'), ('202609010002'), ('202609010003'), ('202609010004'),
     ('202609010005'), ('202609010006'), ('202609010007'), ('202609010008'),
-    ('202609010009')
+    ('202609010009'), ('202609010010')
   ) as required(version)
   where not exists (
     select 1 from supabase_migrations.schema_migrations applied
