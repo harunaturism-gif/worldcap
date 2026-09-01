@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - chore/beta-deploy-tooling
+      - release/worldcap-beta-candidate
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.1
+          cache: npm
+      - run: npm ci
+      - run: npm run validate:env -- --repository --template
+      - run: npm test
+      - run: npm run typecheck:web
+      - run: npm run typecheck:server
+      - run: npm run lint
+      - run: npm run build:web
+      - run: npm run build:server
+      - name: Foundry tests when available
+        shell: bash
+        run: |
+          if command -v forge >/dev/null 2>&1; then
+            forge test --root contracts
+          else
+            echo "Foundry is unavailable on this runner; Solidity tests were not executed."
+          fi
