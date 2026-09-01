@@ -1,0 +1,12 @@
+[
+  {"type":"constructor","inputs":[{"name":"authority","type":"address"}]},
+  {"type":"error","name":"DrawAlreadyAnchored","inputs":[]},
+  {"type":"error","name":"DrawNotAnchored","inputs":[]},
+  {"type":"error","name":"InvalidCommitment","inputs":[]},
+  {"type":"error","name":"Unauthorized","inputs":[]},
+  {"type":"event","name":"DrawAnchored","anonymous":false,"inputs":[{"name":"drawIdHash","type":"bytes32","indexed":true},{"name":"manifestRoot","type":"bytes32","indexed":true},{"name":"eligibleCount","type":"uint256","indexed":false},{"name":"algorithmVersionHash","type":"bytes32","indexed":false},{"name":"anchoredAtBlock","type":"uint64","indexed":false},{"name":"anchorer","type":"address","indexed":true}]},
+  {"type":"function","name":"anchorAuthority","stateMutability":"view","inputs":[],"outputs":[{"type":"address"}]},
+  {"type":"function","name":"anchorDraw","stateMutability":"nonpayable","inputs":[{"name":"drawIdHash","type":"bytes32"},{"name":"manifestRoot","type":"bytes32"},{"name":"eligibleCount","type":"uint256"},{"name":"algorithmVersionHash","type":"bytes32"}],"outputs":[]},
+  {"type":"function","name":"getCommitment","stateMutability":"view","inputs":[{"name":"drawIdHash","type":"bytes32"}],"outputs":[{"name":"commitment","type":"tuple","components":[{"name":"manifestRoot","type":"bytes32"},{"name":"eligibleCount","type":"uint256"},{"name":"algorithmVersionHash","type":"bytes32"},{"name":"anchoredAtBlock","type":"uint64"},{"name":"anchorer","type":"address"}]}]},
+  {"type":"function","name":"isAnchored","stateMutability":"view","inputs":[{"name":"drawIdHash","type":"bytes32"}],"outputs":[{"type":"bool"}]}
+]

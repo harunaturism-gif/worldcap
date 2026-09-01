@@ -5,7 +5,9 @@ Status: Living source of truth
 
 ## Product thesis
 
-WorldCAP is a World-native consumer app built around digital prize titles.
+WorldCAP is exclusively a World App Mini App built around persistent digital prize titles.
+
+Production distribution is World App-only. World Chain is the only production chain, WLD is the only user-facing currency, and MiniKit / the World App wallet are the production interaction layer. There is no standalone consumer WorldCAP product, alternate wallet rail, browser payment fallback, or alternate-chain strategy. Privacy-safe public verification artifacts may remain browser-readable without becoming a separate product.
 
 Core roles:
 - WLD = user-facing currency.

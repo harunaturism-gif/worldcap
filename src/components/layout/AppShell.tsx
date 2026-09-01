@@ -1,15 +1,16 @@
-import { Home, Sparkles, Ticket, Users, WalletCards } from 'lucide-react';
+import { Home, ShieldCheck, Sparkles, Ticket, Users, WalletCards } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { AppSession } from '../../domains/identity/types';
 import { formatWld, useMvpStore } from '../../store/mvpStore';
 
-export type Tab = 'home' | 'titles' | 'play' | 'social' | 'wallet';
+export type Tab = 'home' | 'titles' | 'play' | 'social' | 'wallet' | 'fairness';
 const navigation = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'titles', label: 'Titles', icon: Ticket },
   { id: 'play', label: 'Play', icon: Sparkles },
   { id: 'social', label: 'Social', icon: Users },
   { id: 'wallet', label: 'Wallet', icon: WalletCards },
+  { id: 'fairness', label: 'Fairness', icon: ShieldCheck },
 ] as const;
 
 export function AppShell({ session, tab, onTab, onLogout, children }: { session: AppSession; tab: Tab; onTab: (tab: Tab) => void; onLogout: () => void; children: ReactNode }) {
