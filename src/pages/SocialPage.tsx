@@ -12,11 +12,11 @@ function relativeTime(value: string) {
 export function SocialPage({ notify }: { notify: (message: string) => void }) {
   const { snapshot, memberPosts, createPost, toggleReaction } = useMvpStore();
   const [body, setBody] = useState('');
-  const submit = () => { if (!createPost(body)) { notify('Post must be 1–240 characters.'); return; } setBody(''); notify('Shared for this local session.'); };
+  const submit = async () => { if (!await createPost(body)) { notify('Post must be valid and the social service must be available.'); return; } setBody(''); notify('Persisted to the WorldCAP human feed.'); };
   const posts = [...memberPosts, ...(snapshot?.activity ?? [])];
   return <div className="page-stack social-page">
-    <div className="page-heading"><div><p className="eyebrow">Privacy-aware activity</p><h1>Human feed</h1><p>Title and winner milestones without exposing private ownership or balances.</p></div><span className="community-chip"><Users size={16} /> MVP</span></div>
-    <section className="composer panel"><span className="feed-avatar current">YO</span><div><textarea maxLength={240} value={body} onChange={(event) => setBody(event.target.value)} placeholder="Share something with the WorldCAP community…" aria-label="Create a post" /><div><small>{body.length}/240</small><button disabled={!body.trim()} onClick={submit}><Send size={15} /> Post</button></div></div></section>
+      <div className="page-heading"><div><p className="eyebrow">Privacy-aware activity</p><h1>Human feed</h1><p>Persisted posts and milestones without exposing private ownership or balances.</p></div><span className="community-chip"><Users size={16} /> Verified</span></div>
+      <section className="composer panel"><span className="feed-avatar current">YO</span><div><textarea maxLength={240} value={body} onChange={(event) => setBody(event.target.value)} placeholder="Share something with the WorldCAP community…" aria-label="Create a post" /><div><small>{body.length}/240</small><button disabled={!body.trim()} onClick={() => void submit()}><Send size={15} /> Post</button></div></div></section>
     <section className="feed-list">{posts.map((post) => {
       const isLocal = 'local' in post && post.local === true;
       const label = isLocal ? 'You' : 'WorldCAP activity';

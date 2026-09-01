@@ -21,7 +21,6 @@ export interface EconomySnapshot { campaign: CampaignDto; titleTiers: TitleTierD
 export interface PurchaseIntentDto { reference: string; campaignId: string; tierId: string; quantity: number; recipient: string; token: 'WLD'; tokenAmount: string; description: string; expiresAt: string; paymentMode: PaymentMode }
 export interface PurchaseCompletionDto { purchase: PurchaseDto; titles: TitleDto[]; replayed: boolean }
 export interface PurchasePendingDto { pending: true; reference: string; status: 'pending_reconciliation' }
-export interface ScratchCompletionDto { title: TitleDto; result: ScratchResultDto; replayed: boolean }
 export interface CapRedemptionCompletionDto { titleId: string; claimedUnits: string; drawEligible: true; replayed: boolean }
 
 function backendUrl(): string { return (import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:3001').replace(/\/$/, ''); }
@@ -77,6 +76,5 @@ export const EconomyApi = {
     });
   },
 
-  reveal: (titleId: string) => api<ScratchCompletionDto>(`/api/economy/titles/${encodeURIComponent(titleId)}/scratch`, { method: 'POST', body: '{}' }),
   claimTitleCap: (titleId: string) => api<CapRedemptionCompletionDto>(`/api/economy/titles/${encodeURIComponent(titleId)}/cap-redemption/claim`, { method: 'POST', body: '{}' }),
 };

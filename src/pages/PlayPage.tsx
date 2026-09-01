@@ -1,21 +1,41 @@
-import { ArrowRight, Check, Gift, LockKeyhole, Sparkles, Ticket, Trophy } from 'lucide-react';
-import { ScratchCard } from '../components/game/ScratchCard';
-import { useMvpStore, formatWld } from '../store/mvpStore';
+import { CheckCircle2, Clock3, Gift, Loader2, LockKeyhole, ShieldAlert, Sparkles, Users } from 'lucide-react';
+import { useState } from 'react';
+import { useMvpStore } from '../store/mvpStore';
 import type { Tab } from '../components/layout/AppShell';
+import type { QuestDto } from '../services/genesisCapApi';
 
-export function PlayPage({ onNavigate }: { onNavigate: (tab: Tab) => void; notify: (message: string) => void }) {
-  const { myTitles, prepareScratch, showReveal, lastReveal, clearLastReveal } = useMvpStore();
-  const unrevealed = myTitles.filter((title) => title.scratchStatus === 'available');
-  const outcomeTitle = lastReveal ? myTitles.find((title) => title.id === lastReveal.result.titleId) ?? lastReveal.title : null;
+function cap(value: string): string { return `${BigInt(value).toLocaleString()} CAP`; }
+function questLabel(kind: string): string { return kind.toLowerCase().split('_').map((part) => part[0]?.toUpperCase() + part.slice(1)).join(' '); }
+function statusIcon(status: QuestDto['status']) {
+  if (status === 'CLAIMED' || status === 'QUALIFIED') return <CheckCircle2 />;
+  if (status === 'PENDING_VERIFICATION' || status === 'IN_PROGRESS') return <Clock3 />;
+  if (status === 'UNAVAILABLE') return <ShieldAlert />;
+  return <LockKeyhole />;
+}
 
-  if (lastReveal && outcomeTitle) {
-    const won = BigInt(lastReveal.result.prizeUnits) > 0n;
-    return <div className="result-wrap"><section className={`prize-result ${won ? 'winner' : ''}`}><div className="result-rays" aria-hidden="true" /><span className="result-icon">{won ? <Trophy /> : <Sparkles />}</span><p className="eyebrow">Persisted legacy result</p><h1>{won ? formatWld(lastReveal.result.prizeUnits) : 'Not this time'}</h1><p>{won ? 'This is a simulated legacy liability—not spendable WLD and not an on-chain payout.' : 'This title remains live for monthly draws and the quarterly jackpot.'}</p><div className="result-title"><Ticket size={17} /><span>{outcomeTitle.serial}</span><b><Check size={15} /> Draw eligible</b></div>{won ? <button className="primary-button wide" onClick={() => onNavigate('wallet')}>View simulated liability <ArrowRight size={17} /></button> : null}<button className="text-button centered" onClick={clearLastReveal}>{unrevealed.length ? 'View another legacy reveal' : 'Close result'}</button></section></div>;
-  }
-
-  return <div className="page-stack">
-    <div className="page-heading"><div><p className="eyebrow">Instant game</p><h1>Scratch & reveal</h1><p>Drag across the foil. WorldCAP cannot manually change the persisted result shown by this reveal.</p></div></div>
-    <section className="play-banner"><div><span className="icon-tile"><Gift /></span><div><small>Ready to play</small><strong>{unrevealed.length} title{unrevealed.length === 1 ? '' : 's'}</strong></div></div><span><LockKeyhole size={15} /> Simulated prize logic</span></section>
-    {unrevealed.length === 0 ? <section className="empty-state"><span className="icon-tile"><Sparkles /></span><h2>No reveals waiting</h2><p>{myTitles.length ? 'Every title has a persisted result and remains draw eligible.' : 'Buy a title to unlock its scratch surface.'}</p><button className="primary-button" onClick={() => onNavigate(myTitles.length ? 'titles' : 'home')}>{myTitles.length ? 'View my titles' : 'Get a title'} <ArrowRight size={17} /></button></section> : <section className="scratch-list">{unrevealed.map((title) => <ScratchCard key={title.id} title={title} prepare={prepareScratch} onRevealed={showReveal} />)}</section>}
+export function PlayPage({ onNavigate, notify }: { onNavigate: (tab: Tab) => void; notify: (message: string) => void }) {
+  void onNavigate;
+  const { journey, action, registerHumanClaim, evaluateQuest, claimQuest, registerReferral } = useMvpStore();
+  const [referral, setReferral] = useState('');
+  if (!journey) return <section className="empty-state"><Loader2 className="spin" /><h2>Loading Genesis Journey</h2></section>;
+  const human = journey.humanClaim;
+  const register = async () => { const result = await registerHumanClaim(); notify(result.message); };
+  const submitReferral = async () => { const result = await registerReferral(referral); notify(result.message); if (result.ok) setReferral(''); };
+  return <div className="page-stack genesis-page">
+    <div className="page-heading"><div><p className="eyebrow">Free verified-human path</p><h1>Genesis Journey</h1><p>Human Claim and published quests distribute only budgeted, simulated CAP. No title or paid scratch is required.</p></div><span className="simulation-badge">Non-on-chain beta</span></div>
+    <section className="panel human-claim-card">
+      <div className="section-heading"><div><p className="eyebrow">Monthly Human Claim</p><h2>{human.epoch?.calendarPeriod ?? 'No open period'}</h2></div><span className={human.participation === 'SETTLED' ? 'verified-pill' : 'pending-pill'}>{human.participation}</span></div>
+      {human.epoch ? <><div className="claim-pool"><span><Gift /></span><div><small>Fixed published pool</small><strong>{cap(human.epoch.poolUnits)}</strong></div><div><small>Registered humans</small><strong>{BigInt(human.epoch.participantCount).toLocaleString()}</strong></div></div>
+        {human.estimatedUnits !== null ? <p className="estimate-line"><b>ESTIMATE</b> {cap(human.estimatedUnits)} per human at the current participant count. Exact settlement occurs after closure.</p> : null}
+        {human.participation === 'SETTLED' ? <p className="settled-line"><CheckCircle2 /> Finalized allocation: {cap(human.settledUnits)}. The integer remainder remains unissued.</p> : null}
+        <button className="primary-button wide" disabled={!human.available || human.participation !== 'NOT_CLAIMED' || action === 'human-claim'} onClick={() => void register()}>{action === 'human-claim' ? <Loader2 className="spin" /> : <Users />} {human.participation === 'NOT_CLAIMED' ? 'Register for this month' : human.participation === 'REGISTERED' ? 'Registered — settlement pending' : 'Monthly share settled'}</button></> : <div className="unavailable-state"><ShieldAlert /><p>{human.reason}. A fixed pool must be published before registration opens.</p></div>}
+    </section>
+    <section className="panel genesis-campaign">
+      <div className="section-heading"><div><p className="eyebrow">Genesis growth campaign</p><h2>{journey.campaign?.name ?? 'No active campaign'}</h2></div>{journey.campaign ? <span className="pending-pill">{journey.campaign.version}</span> : null}</div>
+      {journey.campaign ? <><div className="budget-row"><span>Published budget <b>{cap(journey.campaign.budgetUnits)}</b></span><span>Distributed <b>{cap(journey.campaign.distributedUnits)}</b></span><span>Reserved <b>{cap(journey.campaign.reservedUnits)}</b></span><span>Remaining <b>{cap(journey.campaign.remainingUnits)}</b></span></div>
+        <div className="quest-list">{journey.quests.map((quest) => <article key={quest.questId} className={`quest-card status-${quest.status.toLowerCase()}`}><span className="quest-icon">{statusIcon(quest.status)}</span><div><b>{questLabel(quest.kind)}</b><small>{quest.verificationMode === 'EXTERNAL' ? 'Authoritative external verification required' : `${quest.progressCurrent}/${quest.progressRequired} verified progress`}</small>{quest.reason ? <em>{quest.reason}</em> : null}</div><strong>{cap(quest.rewardUnits)}</strong>{quest.status === 'QUALIFIED' ? <button onClick={() => void claimQuest(quest.questId).then((result) => notify(result.message))}>Claim</button> : quest.status === 'CLAIMED' || quest.status === 'UNAVAILABLE' ? null : <button disabled={action === 'quest'} onClick={() => void evaluateQuest(quest.questId).then((result) => notify(result.message))}>Check</button>}</article>)}</div>
+        <div className="referral-panel"><div><small>Your privacy-safe referral code</small><code>{journey.referralCode}</code></div><div><input value={referral} maxLength={16} onChange={(event) => setReferral(event.target.value.toUpperCase())} placeholder="Inviter code" aria-label="Inviter referral code" /><button disabled={referral.length !== 16 || action === 'quest'} onClick={() => void submitReferral()}>Record referral</button></div><p>Referrals must be recorded before qualification and connect two distinct World ID verified humans.</p></div>
+      </> : <div className="unavailable-state"><Sparkles /><p>No budgeted Genesis campaign is active. Reward amounts are never invented by the client.</p></div>}
+    </section>
   </div>;
 }

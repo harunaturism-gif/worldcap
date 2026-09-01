@@ -1,25 +1,27 @@
 /* eslint-disable react-refresh/only-export-components -- provider and typed hook intentionally colocated */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { AppSession } from '../domains/identity/types';
-import { EconomyApi, formatWldUnits, type ActivityDto, type EconomySnapshot, type ScratchCompletionDto, type TitleDto } from '../services/economyApi';
+import { EconomyApi, formatWldUnits, type ActivityDto, type EconomySnapshot, type TitleDto } from '../services/economyApi';
+import { GenesisCapApi, type GenesisJourneyDto } from '../services/genesisCapApi';
 
 interface MemberPost extends ActivityDto { local: true; reactions: number; reacted: boolean }
 
 interface StoreValue {
   snapshot: EconomySnapshot | null;
+  journey: GenesisJourneyDto | null;
   myTitles: TitleDto[];
   isLoading: boolean;
-  action: 'purchase' | 'scratch' | 'cap-claim' | null;
+  action: 'purchase' | 'cap-claim' | 'human-claim' | 'quest' | 'social-post' | null;
   error: string | null;
-  lastReveal: ScratchCompletionDto | null;
   memberPosts: MemberPost[];
   refresh: () => Promise<void>;
   buyTitles: (quantity: number, tierId: string) => Promise<{ ok: boolean; message: string }>;
-  prepareScratch: (titleId: string) => Promise<ScratchCompletionDto | null>;
   claimTitleCap: (titleId: string) => Promise<{ ok: boolean; message: string }>;
-  showReveal: (outcome: ScratchCompletionDto) => void;
-  clearLastReveal: () => void;
-  createPost: (body: string) => boolean;
+  registerHumanClaim: () => Promise<{ ok: boolean; message: string }>;
+  evaluateQuest: (questId: string) => Promise<{ ok: boolean; message: string }>;
+  claimQuest: (questId: string) => Promise<{ ok: boolean; message: string }>;
+  registerReferral: (inviterCode: string) => Promise<{ ok: boolean; message: string }>;
+  createPost: (body: string) => Promise<boolean>;
   toggleReaction: (postId: string) => void;
 }
 
@@ -27,14 +29,17 @@ const StoreContext = createContext<StoreValue | null>(null);
 
 export function MvpStoreProvider({ children }: { session: AppSession; children: ReactNode }) {
   const [snapshot, setSnapshot] = useState<EconomySnapshot | null>(null);
+  const [journey, setJourney] = useState<GenesisJourneyDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [action, setAction] = useState<'purchase' | 'scratch' | 'cap-claim' | null>(null);
+  const [action, setAction] = useState<StoreValue['action']>(null);
   const [error, setError] = useState<string | null>(null);
-  const [lastReveal, setLastReveal] = useState<ScratchCompletionDto | null>(null);
   const [memberPosts, setMemberPosts] = useState<MemberPost[]>([]);
 
   const refresh = useCallback(async () => {
-    try { setSnapshot(await EconomyApi.snapshot()); setError(null); }
+    try {
+      const [economy, genesis] = await Promise.all([EconomyApi.snapshot(), GenesisCapApi.journey()]);
+      setSnapshot(economy); setJourney(genesis); setError(null);
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Economic state unavailable'); }
     finally { setIsLoading(false); }
   }, []);
@@ -59,22 +64,6 @@ export function MvpStoreProvider({ children }: { session: AppSession; children: 
     } finally { setAction(null); }
   }, [refresh]);
 
-  const prepareScratch = useCallback(async (titleId: string) => {
-    setAction('scratch');
-    try {
-      const outcome = await EconomyApi.reveal(titleId);
-      return outcome;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Scratch reveal failed');
-      return null;
-    } finally { setAction(null); }
-  }, []);
-
-  const showReveal = useCallback((outcome: ScratchCompletionDto) => {
-    setLastReveal(outcome);
-    void refresh();
-  }, [refresh]);
-
   const claimTitleCap = useCallback(async (titleId: string) => {
     setAction('cap-claim');
     try {
@@ -88,19 +77,52 @@ export function MvpStoreProvider({ children }: { session: AppSession; children: 
     } finally { setAction(null); }
   }, [refresh]);
 
-  const createPost = useCallback((body: string) => {
+  const registerHumanClaim = useCallback(async () => {
+    setAction('human-claim');
+    try { await GenesisCapApi.registerHumanClaim(); await refresh(); return { ok: true, message: 'Registered. CAP is settled only after the monthly pool closes.' }; }
+    catch (cause) { const message = cause instanceof Error ? cause.message : 'Registration failed'; setError(message); return { ok: false, message }; }
+    finally { setAction(null); }
+  }, [refresh]);
+
+  const evaluateQuest = useCallback(async (questId: string) => {
+    setAction('quest');
+    try { const result = await GenesisCapApi.evaluateQuest(questId); await refresh(); return { ok: result.status === 'QUALIFIED' || result.status === 'CLAIMED', message: result.status === 'QUALIFIED' ? 'Quest verified. Reward is ready to claim.' : result.reason ?? `Quest status: ${result.status}` }; }
+    catch (cause) { const message = cause instanceof Error ? cause.message : 'Quest verification failed'; setError(message); return { ok: false, message }; }
+    finally { setAction(null); }
+  }, [refresh]);
+
+  const claimQuest = useCallback(async (questId: string) => {
+    setAction('quest');
+    try { await GenesisCapApi.claimQuest(questId); await refresh(); return { ok: true, message: 'Simulated CAP reward recorded in the immutable source ledger.' }; }
+    catch (cause) { const message = cause instanceof Error ? cause.message : 'Reward claim failed'; setError(message); return { ok: false, message }; }
+    finally { setAction(null); }
+  }, [refresh]);
+
+  const registerReferral = useCallback(async (inviterCode: string) => {
+    setAction('quest');
+    try { await GenesisCapApi.registerReferral(inviterCode); await refresh(); return { ok: true, message: 'Referral recorded before qualification.' }; }
+    catch (cause) { const message = cause instanceof Error ? cause.message : 'Referral registration failed'; setError(message); return { ok: false, message }; }
+    finally { setAction(null); }
+  }, [refresh]);
+
+  const createPost = useCallback(async (body: string) => {
     const clean = body.trim();
     if (!clean || clean.length > 240) return false;
-    setMemberPosts((current) => [{ id: crypto.randomUUID(), type: 'purchase_activity', body: clean, createdAt: new Date().toISOString(), local: true, reactions: 0, reacted: false }, ...current]);
-    return true;
-  }, []);
+    setAction('social-post');
+    try {
+      const post = await GenesisCapApi.createSocialPost(clean);
+      setMemberPosts((current) => [{ id: post.id, type: 'purchase_activity', body: post.body, createdAt: post.createdAt, local: true, reactions: 0, reacted: false }, ...current]);
+      await refresh(); return true;
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Post failed'); return false; }
+    finally { setAction(null); }
+  }, [refresh]);
 
   const toggleReaction = useCallback((postId: string) => {
     setMemberPosts((current) => current.map((post) => post.id === postId ? { ...post, reacted: !post.reacted, reactions: post.reactions + (post.reacted ? -1 : 1) } : post));
   }, []);
 
   const myTitles = useMemo(() => snapshot?.titles ?? [], [snapshot]);
-  const value = useMemo<StoreValue>(() => ({ snapshot, myTitles, isLoading, action, error, lastReveal, memberPosts, refresh, buyTitles, prepareScratch, claimTitleCap, showReveal, clearLastReveal: () => setLastReveal(null), createPost, toggleReaction }), [action, buyTitles, claimTitleCap, createPost, error, isLoading, lastReveal, memberPosts, myTitles, prepareScratch, refresh, showReveal, snapshot, toggleReaction]);
+  const value = useMemo<StoreValue>(() => ({ snapshot, journey, myTitles, isLoading, action, error, memberPosts, refresh, buyTitles, claimTitleCap, registerHumanClaim, evaluateQuest, claimQuest, registerReferral, createPost, toggleReaction }), [action, buyTitles, claimQuest, claimTitleCap, createPost, error, evaluateQuest, isLoading, journey, memberPosts, myTitles, refresh, registerHumanClaim, registerReferral, snapshot, toggleReaction]);
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
 

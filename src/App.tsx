@@ -8,6 +8,7 @@ import { PlayPage } from './pages/PlayPage';
 import { SocialPage } from './pages/SocialPage';
 import { WalletPage } from './pages/WalletPage';
 import { FairnessPage } from './pages/FairnessPage';
+import { FounderControlCenterPage } from './pages/FounderControlCenterPage';
 
 export default function App({ session, logout }: { session: AppSession; logout: () => Promise<void> }) {
   return <MvpStoreProvider session={session}><AuthenticatedApp session={session} logout={logout} /></MvpStoreProvider>;
@@ -15,15 +16,18 @@ export default function App({ session, logout }: { session: AppSession; logout: 
 
 function AuthenticatedApp({ session, logout }: { session: AppSession; logout: () => Promise<void> }) {
   const [tab, setTab] = useState<Tab>('home');
+  const [founderOpen, setFounderOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const notify = (message: string) => { setNotice(message); window.setTimeout(() => setNotice(null), 2600); };
-  return <AppShell session={session} tab={tab} onTab={setTab} onLogout={() => void logout()}>
-    {tab === 'home' && <HomePage onNavigate={setTab} notify={notify} />}
-    {tab === 'titles' && <TitlesPage onNavigate={setTab} notify={notify} />}
-    {tab === 'play' && <PlayPage onNavigate={setTab} notify={notify} />}
-    {tab === 'social' && <SocialPage notify={notify} />}
-    {tab === 'wallet' && <WalletPage />}
-    {tab === 'fairness' && <FairnessPage />}
+  const navigate = (next: Tab) => { setFounderOpen(false); setTab(next); };
+  return <AppShell session={session} tab={tab} onTab={navigate} onLogout={() => void logout()}>
+    {founderOpen && <FounderControlCenterPage onBack={() => setFounderOpen(false)} />}
+    {!founderOpen && tab === 'home' && <HomePage onNavigate={navigate} notify={notify} />}
+    {!founderOpen && tab === 'titles' && <TitlesPage onNavigate={navigate} notify={notify} />}
+    {!founderOpen && tab === 'play' && <PlayPage onNavigate={navigate} notify={notify} />}
+    {!founderOpen && tab === 'social' && <SocialPage notify={notify} />}
+    {!founderOpen && tab === 'wallet' && <WalletPage onOpenFounder={() => setFounderOpen(true)} />}
+    {!founderOpen && tab === 'fairness' && <FairnessPage />}
     {notice && <div className="toast" role="status">{notice}</div>}
   </AppShell>;
 }
