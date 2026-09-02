@@ -29,19 +29,19 @@ export function AuthGate({ children }: { children: (session: AppSession, logout:
     <section className="auth-card">
       <div className="auth-mark"><Trophy size={31} strokeWidth={2.2} /></div>
       <p className="eyebrow"><Sparkles size={13} /> Built for World App</p>
-      <h1>Every title has<br /><em>a story.</em></h1>
-      <p className="auth-intro">Collect individually numbered titles and stay eligible for monthly draws and the quarterly jackpot.</p>
+      <h1>Collect today.<br /><em>Come back monthly.</em></h1>
+      <p className="auth-intro">Own numbered titles, join a free Human Claim every month, and follow each draw from commitment to result.</p>
       <div className="auth-points">
-        <span><Check size={15} /> One verified human</span>
-        <span><Check size={15} /> WLD-denominated</span>
-        <span><Check size={15} /> Transparent allocation</span>
+        <span><Check size={15} /> One human, one identity</span>
+        <span><Check size={15} /> A reason to return monthly</span>
+        <span><Check size={15} /> Results anyone can verify</span>
       </div>
       <button className="auth-button" disabled={status === 'loading'} onClick={authenticate} aria-busy={status === 'loading'}>
-        {status === 'loading' ? <><Loader2 className="spin" size={19} /> Verifying…</> : <><ShieldCheck size={19} /> Verify with World ID <ArrowRight size={18} /></>}
+        {status === 'loading' ? <><Loader2 className="spin" size={19} /> Opening…</> : devMode ? <><Sparkles size={19} /> Enter the local beta <ArrowRight size={18} /></> : <><ShieldCheck size={19} /> Continue with World ID <ArrowRight size={18} /></>}
       </button>
-      <button className="fairness-public-button" onClick={() => setPublicFairness(true)}><ShieldCheck size={17} /> Explore and verify draws without signing in</button>
+      <button className="fairness-public-button" onClick={() => setPublicFairness(true)}><ShieldCheck size={17} /> See how CAP keeps draws verifiable</button>
       <div className="auth-status" aria-live="polite">
-        {status === 'error' ? <p className="auth-error"><AlertCircle size={15} /> Verification failed. Open this app inside World App and retry.</p> : devMode ? <p><span className="status-dot" /> Explicit local DEV bypass is active</p> : <p><ShieldCheck size={14} /> Server-verified IDKit 4.x session</p>}
+        {status === 'error' ? <p className="auth-error"><AlertCircle size={15} /> We could not verify you. Open CAP inside World App and try again.</p> : devMode ? <p><span className="status-dot" /> Local tour · simulated data only</p> : <p><ShieldCheck size={14} /> Verified securely through World ID</p>}
       </div>
       <p className="demo-disclaimer">Closed technical beta. Prize liabilities and payouts are simulated; real-money prize operation is not authorized.</p>
     </section>

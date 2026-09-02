@@ -7,10 +7,10 @@ export type Tab = 'home' | 'titles' | 'play' | 'social' | 'wallet' | 'fairness';
 const navigation = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'titles', label: 'Titles', icon: Ticket },
-  { id: 'play', label: 'Play', icon: Sparkles },
-  { id: 'social', label: 'Social', icon: Users },
+  { id: 'play', label: 'Claim', icon: Sparkles },
+  { id: 'social', label: 'Community', icon: Users },
   { id: 'wallet', label: 'Wallet', icon: WalletCards },
-  { id: 'fairness', label: 'Fairness', icon: ShieldCheck },
+  { id: 'fairness', label: 'Verify', icon: ShieldCheck },
 ] as const;
 
 export function AppShell({ session, tab, onTab, onLogout, children }: { session: AppSession; tab: Tab; onTab: (tab: Tab) => void; onLogout: () => void; children: ReactNode }) {
