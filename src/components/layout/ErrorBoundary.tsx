@@ -15,7 +15,7 @@ export class ErrorBoundary extends Component<Props, State> {
       <section className="fatal-card">
         <span className="icon-tile danger"><RefreshCw aria-hidden="true" /></span>
         <p className="eyebrow">Safe recovery</p>
-        <h1>WorldCAP paused</h1>
+        <h1>CAP paused</h1>
         <p>Your local demo data is still on this device. Try rendering the app again or reload it.</p>
         <div className="button-row">
           <button className="primary-button" onClick={() => this.setState({ error: null })}><RotateCcw size={18} /> Try again</button>

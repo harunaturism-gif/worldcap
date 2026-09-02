@@ -53,7 +53,7 @@ export function MvpStoreProvider({ children }: { session: AppSession; children: 
         const completion = await EconomyApi.purchase(quantity, tierId);
         if ('pending' in completion) {
           await refresh();
-          return { ok: true, message: 'Payment is still finalizing. WorldCAP will reconcile it automatically without issuing twice.' };
+          return { ok: true, message: 'Payment is still finalizing. CAP will reconcile it automatically without issuing twice.' };
         }
         await refresh();
       return { ok: true, message: `${completion.titles.length} verified title${completion.titles.length === 1 ? '' : 's'} issued.` };
@@ -69,7 +69,7 @@ export function MvpStoreProvider({ children }: { session: AppSession; children: 
     try {
       const result = await EconomyApi.claimTitleCap(titleId);
       await refresh();
-      return { ok: true, message: `${result.claimedUnits} simulated CAP claimed. Quarterly eligibility is unchanged.` };
+      return { ok: true, message: `${result.claimedUnits} simulated $CAP claimed. Quarterly eligibility is unchanged.` };
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'CAP claim failed';
       setError(message);
@@ -79,7 +79,7 @@ export function MvpStoreProvider({ children }: { session: AppSession; children: 
 
   const registerHumanClaim = useCallback(async () => {
     setAction('human-claim');
-    try { await GenesisCapApi.registerHumanClaim(); await refresh(); return { ok: true, message: 'Registered. CAP is settled only after the monthly pool closes.' }; }
+    try { await GenesisCapApi.registerHumanClaim(); await refresh(); return { ok: true, message: 'Registered. $CAP is settled only after the monthly pool closes.' }; }
     catch (cause) { const message = cause instanceof Error ? cause.message : 'Registration failed'; setError(message); return { ok: false, message }; }
     finally { setAction(null); }
   }, [refresh]);
@@ -93,7 +93,7 @@ export function MvpStoreProvider({ children }: { session: AppSession; children: 
 
   const claimQuest = useCallback(async (questId: string) => {
     setAction('quest');
-    try { await GenesisCapApi.claimQuest(questId); await refresh(); return { ok: true, message: 'Simulated CAP reward recorded in the immutable source ledger.' }; }
+    try { await GenesisCapApi.claimQuest(questId); await refresh(); return { ok: true, message: 'Simulated $CAP reward recorded in the immutable source ledger.' }; }
     catch (cause) { const message = cause instanceof Error ? cause.message : 'Reward claim failed'; setError(message); return { ok: false, message }; }
     finally { setAction(null); }
   }, [refresh]);

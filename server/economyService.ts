@@ -28,7 +28,7 @@ export class EconomyService {
     return {
       reference: intent.reference, campaignId: intent.campaignId, tierId: intent.tierId, quantity: intent.quantity,
       recipient: intent.recipient, token: intent.token, tokenAmount: intent.totalUnits.toString(),
-      description: `${intent.quantity} WorldCAP ${intent.quantity === 1 ? 'title' : 'titles'}`,
+      description: `${intent.quantity} CAP ${intent.quantity === 1 ? 'title' : 'titles'}`,
       expiresAt: intent.expiresAt, paymentMode: this.paymentMode(),
     };
   }

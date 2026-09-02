@@ -18,8 +18,8 @@ export function AppShell({ session, tab, onTab, onLogout, children }: { session:
   const verifiedSpend = snapshot?.ledger.filter((entry) => entry.classification === 'verified_purchase').reduce((sum, entry) => sum + BigInt(entry.amountUnits), 0n) ?? 0n;
   return <div className="app-shell">
     <header className="topbar">
-      <button className="brand-button" onClick={() => onTab('home')} aria-label="WorldCAP home">
-        <span className="brand-symbol">W</span><span><b>WorldCAP</b><small><i /> Verified human</small></span>
+      <button className="brand-button" onClick={() => onTab('home')} aria-label="CAP home">
+        <span className="brand-symbol" aria-hidden="true">C</span><span><b>CAP</b><small><i /> Verified human</small></span>
       </button>
       <button className="balance-chip" onClick={() => onTab('wallet')}>
         <span>Verified spend</span><strong>{formatWld(verifiedSpend)}</strong>

@@ -4,7 +4,7 @@ import { useMvpStore } from '../store/mvpStore';
 import type { Tab } from '../components/layout/AppShell';
 import type { QuestDto } from '../services/genesisCapApi';
 
-function cap(value: string): string { return `${BigInt(value).toLocaleString()} CAP`; }
+function cap(value: string): string { return `${BigInt(value).toLocaleString()} $CAP`; }
 function questLabel(kind: string): string { return kind.toLowerCase().split('_').map((part) => part[0]?.toUpperCase() + part.slice(1)).join(' '); }
 function statusIcon(status: QuestDto['status']) {
   if (status === 'CLAIMED' || status === 'QUALIFIED') return <CheckCircle2 />;
@@ -22,7 +22,7 @@ export function PlayPage({ onNavigate, notify }: { onNavigate: (tab: Tab) => voi
   const register = async () => { const result = await registerHumanClaim(); notify(result.message); };
   const submitReferral = async () => { const result = await registerReferral(referral); notify(result.message); if (result.ok) setReferral(''); };
   return <div className="page-stack genesis-page">
-    <div className="page-heading"><div><p className="eyebrow">Free verified-human path</p><h1>Genesis Journey</h1><p>Human Claim and published quests distribute only budgeted, simulated CAP. No title or paid scratch is required.</p></div><span className="simulation-badge">Non-on-chain beta</span></div>
+    <div className="page-heading"><div><p className="eyebrow">Free verified-human path</p><h1>Genesis Journey</h1><p>Human Claim and published quests distribute only budgeted, simulated $CAP. No purchase is required.</p></div><span className="simulation-badge">Non-on-chain beta</span></div>
     <section className="panel human-claim-card">
       <div className="section-heading"><div><p className="eyebrow">Monthly Human Claim</p><h2>{human.epoch?.calendarPeriod ?? 'No open period'}</h2></div><span className={human.participation === 'SETTLED' ? 'verified-pill' : 'pending-pill'}>{human.participation}</span></div>
       {human.epoch ? <><div className="claim-pool"><span><Gift /></span><div><small>Fixed published pool</small><strong>{cap(human.epoch.poolUnits)}</strong></div><div><small>Registered humans</small><strong>{BigInt(human.epoch.participantCount).toLocaleString()}</strong></div></div>

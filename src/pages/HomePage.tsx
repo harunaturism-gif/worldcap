@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarDays, ChevronRight, CircleDollarSign, Loader2, ShieldCheck, Sparkles, Ticket, Trophy, X } from 'lucide-react';
+import { ArrowRight, CalendarDays, ChevronRight, CircleDollarSign, Loader2, ShieldCheck, Sparkles, Ticket, X } from 'lucide-react';
 import { useState } from 'react';
 import { formatWld, useMvpStore } from '../store/mvpStore';
 import type { Tab } from '../components/layout/AppShell';
@@ -24,17 +24,17 @@ export function HomePage({ onNavigate, notify }: { onNavigate: (tab: Tab) => voi
   return <div className="page-stack">
     <section className="hero-card">
       <div className="hero-topline"><span className="live-pill"><i /> Quarterly jackpot</span><span>Draw · {new Date(campaign.quarterlyDrawAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span></div>
-      <div className="jackpot-lockup"><span className="jackpot-icon"><Trophy /></span><div><small>Verified allocation ledger</small><h1>{formatWld(snapshot.pools.quarterly_jackpot)}</h1></div></div>
-      <p>CAP redemption never removes an issued title from the quarterly jackpot.</p>
+      <div className="jackpot-lockup"><span className="jackpot-icon"><ShieldCheck /></span><div><small>Verified allocation ledger</small><h1>{formatWld(snapshot.pools.quarterly_jackpot)}</h1></div></div>
+      <p>$CAP redemption never removes an issued title from the quarterly jackpot.</p>
       <button className="hero-action" disabled={action === 'purchase' || snapshot.paymentMode === 'disabled'} onClick={() => void purchase()}>{action === 'purchase' ? <Loader2 className="spin" /> : null}{snapshot.paymentMode === 'disabled' ? 'Payments unavailable here' : `Get a title · ${formatWld(totalUnits)}`} <ArrowRight size={18} /></button>
-      <button className="fairness-cta" onClick={() => setFairnessOpen(true)}><ShieldCheck size={17} /> How do we guarantee a fair draw?</button>
+      <button className="fairness-cta" onClick={() => setFairnessOpen(true)}><ShieldCheck size={17} /> How can I verify a draw?</button>
       <div className="hero-fine"><span><CalendarDays size={14} /> Monthly draw {new Date(campaign.monthlyDrawAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span><span><Sparkles size={14} /> Free Monthly Human Claim</span></div>
     </section>
 
     <section className="stat-grid" aria-label="Campaign summary">
       <article><span className="stat-icon peach"><Ticket /></span><small>Titles issued</small><strong>{snapshot.titlesSold.toLocaleString()}</strong><em>Persisted campaign</em></article>
       <article><span className="stat-icon mint"><CircleDollarSign /></span><small>Monthly allocation</small><strong>{formatWld(snapshot.pools.monthly_prize_pool)}</strong><em>38% accounting</em></article>
-      <article><span className="stat-icon lilac"><Sparkles /></span><small>Your titles</small><strong>{myTitles.length}</strong><em>CAP + quarterly eligibility tracked</em></article>
+      <article><span className="stat-icon lilac"><Sparkles /></span><small>Your titles</small><strong>{myTitles.length}</strong><em>$CAP + quarterly eligibility tracked</em></article>
     </section>
 
     <section className="panel campaign-panel">
@@ -46,7 +46,7 @@ export function HomePage({ onNavigate, notify }: { onNavigate: (tab: Tab) => voi
       <p className="payment-mode-note">{snapshot.paymentMode === 'real' ? 'World App WLD payment · server verified before issuance' : snapshot.paymentMode === 'development-fake' ? 'Explicit development-only fake payment · server flow exercised' : snapshot.paymentMode === 'beta-demo' ? 'Closed beta demo purchase · no WLD is charged and no monetary spend is recorded' : snapshot.paymentDisabledReason}</p>
     </section>
 
-    <section className="panel allocation-panel"><div className="section-heading"><div><p className="eyebrow">Every verified purchase</p><h2>Exact capital allocation</h2></div><span className="simulation-badge">Accounting ledger</span></div><div className="allocation-bar" aria-label="40% CAP redemption, 38% monthly, 10% quarterly, 10% company, 2% platform"><i className="cap" /><i className="monthly" /><i className="jackpot" /><i className="company" /><i className="platform" /></div><div className="allocation-legend"><span><i className="cap" /><b>40%</b> CAP redemption</span><span><i className="monthly" /><b>38%</b> Monthly prizes</span><span><i className="jackpot" /><b>10%</b> Quarterly jackpot</span><span><i className="company" /><b>10%</b> Company treasury</span><span><i className="platform" /><b>2%</b> Platform & ops</span></div></section>
+    <section className="panel allocation-panel"><div className="section-heading"><div><p className="eyebrow">Every verified purchase</p><h2>Exact capital allocation</h2></div><span className="simulation-badge">Accounting ledger</span></div><div className="allocation-bar" aria-label="40% $CAP redemption, 38% monthly, 10% quarterly, 10% company, 2% platform"><i className="cap" /><i className="monthly" /><i className="jackpot" /><i className="company" /><i className="platform" /></div><div className="allocation-legend"><span><i className="cap" /><b>40%</b> $CAP redemption</span><span><i className="monthly" /><b>38%</b> Monthly prizes</span><span><i className="jackpot" /><b>10%</b> Quarterly jackpot</span><span><i className="company" /><b>10%</b> Company treasury</span><span><i className="platform" /><b>2%</b> Platform & ops</span></div></section>
     {fairnessOpen ? <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setFairnessOpen(false); }}><section className="fairness-modal" role="dialog" aria-modal="true" aria-labelledby="fairness-title"><button className="modal-close" onClick={() => setFairnessOpen(false)} aria-label="Close fairness explanation"><X /></button><span className="fairness-mark"><ShieldCheck /></span><p className="eyebrow">Verify, don’t merely trust</p><h2 id="fairness-title">How a fair draw is designed</h2><ol><li>Eligible titles freeze atomically when the draw closes.</li><li>A privacy-safe manifest and cryptographic commitment are published.</li><li>Public randomness is bound to that closed draw.</li><li>The published unbiased algorithm deterministically selects five ordered monthly winners without replacement.</li><li>Anyone can recompute every winner from the public inputs.</li></ol><div className="fairness-status"><b>Closed technical beta</b><p>The trust pipeline and non-custodial commitment contract are implemented and testable. Live Sepolia anchoring and Witnet fulfillment require configured external infrastructure. Prize custody and payouts remain simulated.</p></div><button className="primary-button wide" onClick={() => { setFairnessOpen(false); onNavigate('fairness'); }}>Open Trust Hub</button></section></div> : null}
   </div>;
 }

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { AlertCircle, ArrowRight, Check, Loader2, ShieldCheck, Sparkles, Trophy } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
 import type { AppSession } from '../../domains/identity/types';
 import { AuthService } from '../../services/authService';
 import { FairnessPage } from '../../pages/FairnessPage';
@@ -27,10 +27,11 @@ export function AuthGate({ children }: { children: (session: AppSession, logout:
     <div className="auth-glow auth-glow-one" aria-hidden="true" />
     <div className="auth-glow auth-glow-two" aria-hidden="true" />
     <section className="auth-card">
-      <div className="auth-mark"><Trophy size={31} strokeWidth={2.2} /></div>
+      <div className="auth-mark" aria-label="CAP">C</div>
       <p className="eyebrow"><Sparkles size={13} /> Built for World App</p>
+      <p className="auth-wordmark">CAP</p>
       <h1>Every title has<br /><em>a story.</em></h1>
-      <p className="auth-intro">Collect individually numbered titles and stay eligible for monthly draws and the quarterly jackpot.</p>
+      <p className="auth-intro">Collect individually numbered titles, join verified-human experiences, and inspect every published draw record.</p>
       <div className="auth-points">
         <span><Check size={15} /> One verified human</span>
         <span><Check size={15} /> WLD-denominated</span>
