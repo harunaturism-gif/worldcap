@@ -61,7 +61,7 @@ export const EconomyApi = {
     } else if (intent.paymentMode === 'disabled') {
       throw new Error('World Pay is unavailable in this environment');
     } else {
-      if (!MiniKit.isInstalled()) throw new Error('Open WorldCAP inside World App to pay with WLD');
+      if (!MiniKit.isInstalled()) throw new Error('Open CAP inside World App to pay with WLD');
       const result = await MiniKit.pay({
         reference: intent.reference,
         to: intent.recipient,
