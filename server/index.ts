@@ -30,7 +30,7 @@ import { operationalLog } from './structuredLogger.js';
 import { createCommitmentAnchorConfig, ViemCommitmentAnchorReader } from './commitmentAnchor.js';
 import { createSupabaseReconciliationStore, PaymentReconciliationWorker } from './paymentReconciliation.js';
 import { createSupabaseManifestPublication } from './supabaseManifestPublisher.js';
-import { DevelopmentMemoryGenesisCapRepository } from './genesisCapGrowth.js';
+import { createLocalClosedBetaGenesisConfig, DevelopmentMemoryGenesisCapRepository } from './genesisCapGrowth.js';
 import { createFounderControlRouter, createGenesisCapRouter, createPublicCapFairnessRouter, parseFounderUserIds } from './genesisCapRoutes.js';
 import type { GenesisCapRepository } from './genesisCapTypes.js';
 import { createSupabaseGenesisCapRepository } from './supabaseGenesisCapRepository.js';
@@ -52,7 +52,10 @@ const runtimePolicy = createRuntimePolicy(process.env);
 const founderUserIds = parseFounderUserIds(process.env);
 const commitmentAnchorConfig = createCommitmentAnchorConfig(process.env);
 const devAuthEnabled = isDevelopmentAuthEnabled(process.env);
+const localBetaSeedEnabled = process.env.ENABLE_LOCAL_BETA_SEED === 'true';
 const isProductionProcess = process.env.NODE_ENV !== 'development';
+
+if (localBetaSeedEnabled && isProductionProcess) throw new Error('local_beta_seed_forbidden');
 
 if (isProductionProcess && (!worldIdConfig || !appSessionConfig || !persistenceConfig || persistenceConfig.mode !== 'supabase' || !paymentConfig)) {
   throw new Error('Invalid production/testnet authentication, payment, or persistence configuration');
@@ -79,6 +82,7 @@ const economyService = economyRepository && paymentVerifier && paymentConfig
 let genesisCapRepository: GenesisCapRepository | null = null;
 if (persistenceConfig?.mode === 'development-memory' && economyRepository) {
   genesisCapRepository = new DevelopmentMemoryGenesisCapRepository({
+    ...(localBetaSeedEnabled ? createLocalClosedBetaGenesisConfig() : {}),
     titleAccounting: async (userId) => {
       const snapshot = await economyRepository!.getSnapshot(userId);
       return snapshot.titles.reduce((totals, title) => ({
@@ -90,6 +94,19 @@ if (persistenceConfig?.mode === 'development-memory' && economyRepository) {
   });
 }
 if (persistenceConfig?.mode === 'supabase') genesisCapRepository = createSupabaseGenesisCapRepository(persistenceConfig);
+
+if (localBetaSeedEnabled && economyRepository instanceof DevelopmentMemoryEconomyRepository && genesisCapRepository instanceof DevelopmentMemoryGenesisCapRepository && paymentConfig) {
+  const localUser: InternalUser = { id: `user_${'0'.repeat(56)}deadbeef`, username: 'Human_DEADBEEF' };
+  const intent = await economyRepository.createPurchaseIntent(localUser, '11111111-1111-4111-8111-111111111111', '33333333-3333-4333-8333-333333333333', 5, paymentConfig.recipient);
+  await economyRepository.completePurchase(localUser, intent, { transactionId: 'local_beta_seed_purchase', transactionHash: `0x${'b'.repeat(64)}`, reference: intent.reference, transactionStatus: 'mined', from: '0xDeaD00000000000000000000000000000000BEEF', chain: 'worldchain', tokenAmount: intent.totalUnits.toString(), token: 'WLD', to: paymentConfig.recipient, appId: paymentConfig.appId, timestamp: new Date().toISOString(), settlementMode: 'demo' });
+  genesisCapRepository.markVerifiedHuman(localUser.id);
+  genesisCapRepository.recordVerifiedTitles(localUser.id, 5n);
+  genesisCapRepository.recordVerifiedCosmeticPurchase(localUser.id);
+  await genesisCapRepository.registerMonthlyClaim(localUser, new Date());
+  await genesisCapRepository.createSocialPost(localUser, 'Building the first CAP collection · local beta simulation', new Date());
+  for (const questId of ['local-quest-profile', 'local-quest-social', 'local-quest-collector']) await genesisCapRepository.evaluateQuest(localUser, questId, new Date());
+  await genesisCapRepository.claimQuestReward(localUser, 'local-quest-social', new Date());
+}
 const workerId = `worldcap-${process.pid}`;
 const reconciliationStore = persistenceConfig?.mode === 'supabase' ? createSupabaseReconciliationStore(persistenceConfig, workerId) : null;
 let drawRepository: DrawRepository | null = null;

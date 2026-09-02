@@ -119,6 +119,23 @@ export interface DevelopmentGenesisConfig {
   titleAccounting?: (userId: string) => Promise<{ lockedUnits: bigint; availableUnits: bigint; claimedUnits: bigint }>;
 }
 
+export function createLocalClosedBetaGenesisConfig(now = new Date()): DevelopmentGenesisConfig {
+  const month = now.toISOString().slice(0, 7);
+  const opensAt = new Date(now.getTime() - 7 * 86_400_000).toISOString();
+  const closesAt = new Date(now.getTime() + 21 * 86_400_000).toISOString();
+  const campaignId = 'local-cap-genesis-2026';
+  return {
+    epochs: [{ id: `local-human-claim-${month}`, calendarPeriod: month, status: 'OPEN', poolUnits: 1_000_003n, opensAt, closesAt, publishedAt: opensAt, closedAt: null, finalizedAt: null, participantCount: 24n, settledUnitsPerHuman: null, unissuedRemainderUnits: null, accountingMode: 'simulated' }],
+    campaigns: [{ id: campaignId, version: 'local-beta-v1', name: 'CAP Genesis Journey · Local Beta', startsAt: opensAt, endsAt: closesAt, status: 'ACTIVE', budgetUnits: 250_000n, publishedAt: opensAt, configCommitment: `sha256:${'c'.repeat(64)}`, distributedUnits: 18_500n, reservedUnits: 2_500n, accountingMode: 'simulated' }],
+    quests: [
+      { id: 'local-quest-profile', campaignId, code: 'VERIFIED_PROFILE', kind: 'VERIFIED_PROFILE', verificationMode: 'INTERNAL', rewardUnits: 1_000n, maxRewardedCompletions: 10_000n, milestoneThreshold: null, config: {}, status: 'ACTIVE' },
+      { id: 'local-quest-social', campaignId, code: 'FIRST_SOCIAL_POST', kind: 'FIRST_SOCIAL_POST', verificationMode: 'INTERNAL', rewardUnits: 750n, maxRewardedCompletions: 10_000n, milestoneThreshold: null, config: {}, status: 'ACTIVE' },
+      { id: 'local-quest-collector', campaignId, code: 'TITLE_COUNT_MILESTONE', kind: 'TITLE_COUNT_MILESTONE', verificationMode: 'INTERNAL', rewardUnits: 2_500n, maxRewardedCompletions: 5_000n, milestoneThreshold: 5n, config: {}, status: 'ACTIVE' },
+      { id: 'local-quest-x', campaignId, code: 'FOLLOW_X', kind: 'FOLLOW_X', verificationMode: 'EXTERNAL', rewardUnits: 500n, maxRewardedCompletions: 20_000n, milestoneThreshold: null, config: { provider: 'not-connected-local-beta' }, status: 'ACTIVE' },
+    ],
+  };
+}
+
 interface ProgressRecord { status: QuestJourneyItem['status']; reference: string | null; qualifiedAt: string | null }
 interface ReferralRecord { id: string; inviterId: string; refereeId: string; createdAt: string; qualifiedAt: string | null }
 class AsyncMutex {
@@ -284,7 +301,12 @@ export class DevelopmentMemoryGenesisCapRepository implements GenesisCapReposito
   private async totals(userId?: string): Promise<CapSourceTotals> {
     const rows = [...this.distributions.values()].filter((row) => !userId || row.userId === userId);
     const source = (name: CapDistribution['source']) => rows.filter((row) => row.source === name).reduce((sum, row) => sum + row.amountUnits, 0n);
-    const title = userId && this.titleAccounting ? await this.titleAccounting(userId) : { lockedUnits: 0n, availableUnits: 0n, claimedUnits: 0n };
+    const emptyTitle = { lockedUnits: 0n, availableUnits: 0n, claimedUnits: 0n };
+    const title = userId && this.titleAccounting
+      ? await this.titleAccounting(userId)
+      : this.titleAccounting
+        ? (await Promise.all([...this.verifiedUsers].map((id) => this.titleAccounting!(id)))).reduce((sum, item) => ({ lockedUnits: sum.lockedUnits + item.lockedUnits, availableUnits: sum.availableUnits + item.availableUnits, claimedUnits: sum.claimedUnits + item.claimedUnits }), emptyTitle)
+        : emptyTitle;
     const human = source('HUMAN_CLAIM'); const growth = source('GENESIS_GROWTH'); const other = source('OTHER_FUTURE');
     return { titleEntitlementUnits: title.claimedUnits, humanClaimUnits: human, genesisGrowthUnits: growth, otherFutureUnits: other, availableUnits: title.availableUnits + title.claimedUnits + human + growth + other, lockedUnits: title.lockedUnits, spentUnits: 0n, burnedUnits: 0n, totalClaimedUnits: title.claimedUnits + human + growth + other, accountingMode: 'simulated' };
   }
@@ -335,7 +357,7 @@ export class DevelopmentMemoryGenesisCapRepository implements GenesisCapReposito
         verifiedHumans: BigInt(this.verifiedUsers.size),
         titlesIssued: [...this.verifiedTitleCounts.values()].reduce((sum, count) => sum + count, 0n),
         settledPurchases: BigInt([...this.verifiedTitleCounts.values()].filter((count) => count > 0n).length),
-        activeCampaignId: null,
+        activeCampaignId: campaign?.id ?? null,
         monthlyDrawStatus: null,
         quarterlyDrawStatus: null,
       },
