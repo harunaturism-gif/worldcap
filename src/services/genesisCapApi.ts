@@ -15,7 +15,15 @@ export interface GenesisJourneyDto {
   quests: QuestDto[]; humanClaim: HumanClaimDto; cap: CapTotalsDto; referralCode: string;
 }
 export interface PublicCapSummaryDto { generatedAt: string; accountingMode: 'simulated'; sources: Pick<CapTotalsDto, 'titleEntitlementUnits' | 'humanClaimUnits' | 'genesisGrowthUnits' | 'otherFutureUnits' | 'lockedUnits' | 'burnedUnits' | 'totalClaimedUnits'>; humanClaim: { calendarPeriod: string | null; status: string | null; poolUnits: string; participantCount: string; settledUnitsPerHuman: string | null; unissuedRemainderUnits: string | null }; genesis: { campaignId: string | null; version: string | null; budgetUnits: string; distributedUnits: string; remainingUnits: string } }
-export interface FounderMetricsDto { generatedAt: string; humanClaim: { period: string | null; poolUnits: string; participants: string; settledUnits: string; unissuedUnits: string; projectedLiability2x: string; projectedLiability5x: string; projectedLiability10x: string }; genesis: { campaignId: string | null; budgetUnits: string; distributedUnits: string; reservedUnits: string; remainingUnits: string; participants: string; byQuest: Array<{ questId: string; qualified: string; claimed: string; distributedUnits: string }>; verifiedReferrals: string; milestoneQualifications: string; externalPending: string }; cap: CapTotalsDto; trust: { immutableLedgerRows: string; accountingMode: 'simulated'; productionTokenTransfers: false } }
+export interface FounderMetricsDto {
+  generatedAt: string;
+  humanClaim: { period: string | null; poolUnits: string; participants: string; settledUnits: string; settledUnitsPerHuman: string; unissuedUnits: string; previousPeriodParticipants: string; participantGrowthBps: string | null; projectedShare2x: string; projectedShare5x: string; projectedShare10x: string };
+  product: { users: string; verifiedHumans: string; titlesIssued: string; settledPurchases: string; activeCampaignId: string | null; monthlyDrawStatus: string | null; quarterlyDrawStatus: string | null };
+  genesis: { campaignId: string | null; budgetUnits: string; distributedUnits: string; reservedUnits: string; remainingUnits: string; participants: string; byQuest: Array<{ questId: string; qualified: string; claimed: string; distributedUnits: string }>; verifiedReferrals: string; milestoneQualifications: string; externalPending: string };
+  cap: CapTotalsDto;
+  trust: { immutableLedgerRows: string; accountingMode: 'simulated'; productionTokenTransfers: false; latestDrawId: string | null; manifestCommitment: string | null; randomnessStatus: string; externalProofStatus: string; anchorStatus: string; verifyDrawStatus: string };
+  operations: { reconciliationPending: string; reconciliationFailedOrStuck: string; drawJobsFailed: string; readinessStatus: string };
+}
 
 function base(): string { return (import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:3001').replace(/\/$/, ''); }
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

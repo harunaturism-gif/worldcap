@@ -125,10 +125,22 @@ export interface FounderControlMetrics {
     poolUnits: bigint;
     participants: bigint;
     settledUnits: bigint;
+    settledUnitsPerHuman: bigint;
     unissuedUnits: bigint;
-    projectedLiability2x: bigint;
-    projectedLiability5x: bigint;
-    projectedLiability10x: bigint;
+    previousPeriodParticipants: bigint;
+    participantGrowthBps: bigint | null;
+    projectedShare2x: bigint;
+    projectedShare5x: bigint;
+    projectedShare10x: bigint;
+  };
+  product: {
+    users: bigint;
+    verifiedHumans: bigint;
+    titlesIssued: bigint;
+    settledPurchases: bigint;
+    activeCampaignId: string | null;
+    monthlyDrawStatus: string | null;
+    quarterlyDrawStatus: string | null;
   };
   genesis: {
     campaignId: string | null;
@@ -143,7 +155,23 @@ export interface FounderControlMetrics {
     externalPending: bigint;
   };
   cap: CapSourceTotals;
-  trust: { immutableLedgerRows: bigint; accountingMode: 'simulated'; productionTokenTransfers: false };
+  trust: {
+    immutableLedgerRows: bigint;
+    accountingMode: 'simulated';
+    productionTokenTransfers: false;
+    latestDrawId: string | null;
+    manifestCommitment: string | null;
+    randomnessStatus: string;
+    externalProofStatus: string;
+    anchorStatus: string;
+    verifyDrawStatus: string;
+  };
+  operations: {
+    reconciliationPending: bigint;
+    reconciliationFailedOrStuck: bigint;
+    drawJobsFailed: bigint;
+    readinessStatus: string;
+  };
 }
 
 export interface PublicCapFairnessSummary {

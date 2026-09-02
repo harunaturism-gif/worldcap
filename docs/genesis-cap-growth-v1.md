@@ -35,7 +35,7 @@ Wallet derives source totals, available, locked, spent, burned, and total claime
 ## Trust and operations
 
 - The public fairness endpoint exposes aggregate pool/source/campaign data only.
-- The Founder Control Center is protected by the server-side `FOUNDER_USER_IDS` allowlist and is read-only.
+- The Founder Control Center is protected by the server-side `FOUNDER_USER_IDS` allowlist and is read-only. It aggregates product, CAP-source, Human Claim share forecasts, quest consumption, draw-trust, reconciliation, and worker-health signals without exposing control operations.
 - Paid scratch is removed from the active V1 loop. Historical rows remain readable; the active route rejects new scratch liabilities.
 - Monthly five-winner draws and quarterly eligibility remain independent of Human Claim and Growth rewards.
 

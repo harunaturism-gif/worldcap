@@ -303,6 +303,7 @@ export class DevelopmentMemoryGenesisCapRepository implements GenesisCapReposito
 
   async getFounderMetrics(now: Date): Promise<FounderControlMetrics> {
     const epoch = this.activeEpoch(now) ?? [...this.epochs.values()].sort((a, b) => b.calendarPeriod.localeCompare(a.calendarPeriod))[0] ?? null;
+    const previousEpoch = epoch ? [...this.epochs.values()].filter((candidate) => candidate.calendarPeriod < epoch.calendarPeriod).sort((a, b) => b.calendarPeriod.localeCompare(a.calendarPeriod))[0] ?? null : null;
     const campaign = this.activeCampaign(now) ?? [...this.campaigns.values()].sort((a, b) => b.startsAt.localeCompare(a.startsAt))[0] ?? null;
     const campaignQuests = campaign ? [...this.quests.values()].filter((quest) => quest.campaignId === campaign.id) : [];
     const allProgress = [...this.progress.entries()];
@@ -311,7 +312,38 @@ export class DevelopmentMemoryGenesisCapRepository implements GenesisCapReposito
       const claimed = BigInt(records.filter((record) => record.status === 'CLAIMED').length);
       return { questId: quest.id, qualified: BigInt(records.filter((record) => record.status === 'QUALIFIED').length), claimed, distributedUnits: claimed * quest.rewardUnits };
     });
-    return { generatedAt: iso(now), humanClaim: { period: epoch?.calendarPeriod ?? null, poolUnits: epoch?.poolUnits ?? 0n, participants: epoch?.participantCount ?? 0n, settledUnits: (epoch?.settledUnitsPerHuman ?? 0n) * (epoch?.participantCount ?? 0n), unissuedUnits: epoch?.unissuedRemainderUnits ?? 0n, projectedLiability2x: epoch?.poolUnits ?? 0n, projectedLiability5x: epoch?.poolUnits ?? 0n, projectedLiability10x: epoch?.poolUnits ?? 0n }, genesis: { campaignId: campaign?.id ?? null, budgetUnits: campaign?.budgetUnits ?? 0n, distributedUnits: campaign?.distributedUnits ?? 0n, reservedUnits: campaign?.reservedUnits ?? 0n, remainingUnits: campaign ? campaign.budgetUnits - campaign.distributedUnits - campaign.reservedUnits : 0n, participants: BigInt(new Set([...this.distributions.values()].filter((row) => row.source === 'GENESIS_GROWTH').map((row) => row.userId)).size), byQuest, verifiedReferrals: BigInt([...this.referrals.values()].filter((row) => row.qualifiedAt).length), milestoneQualifications: BigInt(allProgress.filter(([key, value]) => this.quests.get(key.split(':')[0]!)?.kind === 'TITLE_COUNT_MILESTONE' && (value.status === 'QUALIFIED' || value.status === 'CLAIMED')).length), externalPending: BigInt(allProgress.filter(([key, value]) => this.quests.get(key.split(':')[0]!)?.verificationMode === 'EXTERNAL' && value.status === 'PENDING_VERIFICATION').length) }, cap: await this.totals(), trust: { immutableLedgerRows: BigInt(this.distributions.size), accountingMode: 'simulated', productionTokenTransfers: false } };
+    const participants = epoch?.participantCount ?? 0n;
+    const previousParticipants = previousEpoch?.participantCount ?? 0n;
+    const projectedShare = (factor: bigint) => participants > 0n ? (epoch?.poolUnits ?? 0n) / (participants * factor) : 0n;
+    return {
+      generatedAt: iso(now),
+      humanClaim: {
+        period: epoch?.calendarPeriod ?? null,
+        poolUnits: epoch?.poolUnits ?? 0n,
+        participants,
+        settledUnits: (epoch?.settledUnitsPerHuman ?? 0n) * participants,
+        settledUnitsPerHuman: epoch?.settledUnitsPerHuman ?? 0n,
+        unissuedUnits: epoch?.unissuedRemainderUnits ?? 0n,
+        previousPeriodParticipants: previousParticipants,
+        participantGrowthBps: previousParticipants > 0n ? ((participants - previousParticipants) * 10_000n) / previousParticipants : null,
+        projectedShare2x: projectedShare(2n),
+        projectedShare5x: projectedShare(5n),
+        projectedShare10x: projectedShare(10n),
+      },
+      product: {
+        users: BigInt(this.verifiedUsers.size),
+        verifiedHumans: BigInt(this.verifiedUsers.size),
+        titlesIssued: [...this.verifiedTitleCounts.values()].reduce((sum, count) => sum + count, 0n),
+        settledPurchases: BigInt([...this.verifiedTitleCounts.values()].filter((count) => count > 0n).length),
+        activeCampaignId: null,
+        monthlyDrawStatus: null,
+        quarterlyDrawStatus: null,
+      },
+      genesis: { campaignId: campaign?.id ?? null, budgetUnits: campaign?.budgetUnits ?? 0n, distributedUnits: campaign?.distributedUnits ?? 0n, reservedUnits: campaign?.reservedUnits ?? 0n, remainingUnits: campaign ? campaign.budgetUnits - campaign.distributedUnits - campaign.reservedUnits : 0n, participants: BigInt(new Set([...this.distributions.values()].filter((row) => row.source === 'GENESIS_GROWTH').map((row) => row.userId)).size), byQuest, verifiedReferrals: BigInt([...this.referrals.values()].filter((row) => row.qualifiedAt).length), milestoneQualifications: BigInt(allProgress.filter(([key, value]) => this.quests.get(key.split(':')[0]!)?.kind === 'TITLE_COUNT_MILESTONE' && (value.status === 'QUALIFIED' || value.status === 'CLAIMED')).length), externalPending: BigInt(allProgress.filter(([key, value]) => this.quests.get(key.split(':')[0]!)?.verificationMode === 'EXTERNAL' && value.status === 'PENDING_VERIFICATION').length) },
+      cap: await this.totals(),
+      trust: { immutableLedgerRows: BigInt(this.distributions.size), accountingMode: 'simulated', productionTokenTransfers: false, latestDrawId: null, manifestCommitment: null, randomnessStatus: 'NOT_CONFIGURED', externalProofStatus: 'NOT_AVAILABLE', anchorStatus: 'NOT_CONFIGURED', verifyDrawStatus: 'NOT_AVAILABLE' },
+      operations: { reconciliationPending: 0n, reconciliationFailedOrStuck: 0n, drawJobsFailed: 0n, readinessStatus: 'DEVELOPMENT_MEMORY' },
+    };
   }
 
   async getPublicSummary(now: Date): Promise<PublicCapFairnessSummary> {

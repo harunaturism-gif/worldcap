@@ -198,6 +198,11 @@ describe('Genesis Growth budget-first quests', () => {
 
   it('provides read-only founder exposure metrics without token operations', async () => {
     const q = quest(); const campaign = activeGrowth([q]); const repository = new DevelopmentMemoryGenesisCapRepository({ epochs: [openEpoch()], campaigns: [campaign], quests: [q] }); await repository.registerMonthlyClaim(userA, septemberOpen); await repository.claimQuestReward(userA, q.id, septemberOpen);
-    const metrics = await repository.getFounderMetrics(septemberOpen); assert.equal(metrics.genesis.remainingUnits, campaign.budgetUnits - q.rewardUnits); assert.equal(metrics.trust.productionTokenTransfers, false); assert.equal(metrics.humanClaim.projectedLiability10x, metrics.humanClaim.poolUnits);
+    const metrics = await repository.getFounderMetrics(septemberOpen);
+    assert.equal(metrics.genesis.remainingUnits, campaign.budgetUnits - q.rewardUnits);
+    assert.equal(metrics.trust.productionTokenTransfers, false);
+    assert.equal(metrics.humanClaim.projectedShare10x, openEpoch().poolUnits / 10n);
+    assert.equal(metrics.product.verifiedHumans, 1n);
+    assert.equal(metrics.operations.readinessStatus, 'DEVELOPMENT_MEMORY');
   });
 });

@@ -370,11 +370,51 @@ end; $$;
 
 create or replace function public.worldcap_founder_control_metrics() returns jsonb
 language plpgsql security definer set search_path=public,pg_temp as $$
-declare e public.cap_human_claim_epochs%rowtype; c public.cap_growth_campaigns%rowtype; q jsonb;
+declare
+  e public.cap_human_claim_epochs%rowtype;
+  previous_e public.cap_human_claim_epochs%rowtype;
+  c public.cap_growth_campaigns%rowtype;
+  active_campaign public.campaigns%rowtype;
+  monthly_draw public.draws%rowtype;
+  quarterly_draw public.draws%rowtype;
+  latest_draw public.draws%rowtype;
+  latest_job public.draw_coordinator_jobs%rowtype;
+  q jsonb;
 begin
-  select * into e from public.cap_human_claim_epochs where claim_model='MONTHLY_EQUAL_POOL_V2' order by starts_at desc limit 1; select * into c from public.cap_growth_campaigns order by starts_at desc limit 1;
+  select * into e from public.cap_human_claim_epochs where claim_model='MONTHLY_EQUAL_POOL_V2' order by starts_at desc limit 1;
+  if e.id is not null then select * into previous_e from public.cap_human_claim_epochs where claim_model='MONTHLY_EQUAL_POOL_V2' and calendar_period<e.calendar_period order by calendar_period desc limit 1; end if;
+  select * into c from public.cap_growth_campaigns order by starts_at desc limit 1;
+  select * into active_campaign from public.campaigns where status='active' order by sales_open_at desc limit 1;
+  select * into monthly_draw from public.draws where kind='monthly' order by closes_at desc limit 1;
+  select * into quarterly_draw from public.draws where kind='quarterly' order by closes_at desc limit 1;
+  select * into latest_draw from public.draws where kind in ('monthly','quarterly') order by closes_at desc limit 1;
+  if latest_draw.id is not null then select * into latest_job from public.draw_coordinator_jobs where draw_id=latest_draw.id; end if;
   select coalesce(jsonb_agg(jsonb_build_object('questId',quest.id,'qualified',quest.qualified::text,'claimed',quest.claimed::text,'distributedUnits',quest.distributed::text)),'[]'::jsonb) into q from (select qu.id,count(pr.id) filter(where pr.status='QUALIFIED') qualified,count(pr.id) filter(where pr.status='CLAIMED') claimed,coalesce(sum(d.amount_units),0) distributed from public.cap_growth_quests qu left join public.cap_growth_progress pr on pr.quest_id=qu.id left join public.cap_distributions d on d.quest_id=qu.id where c.id is not null and qu.campaign_id=c.id group by qu.id) quest;
-  return jsonb_build_object('generatedAt',now(),'humanClaim',jsonb_build_object('period',e.calendar_period,'poolUnits',coalesce(e.pool_units,0)::text,'participants',coalesce(e.participant_count,0)::text,'settledUnits',(coalesce(e.settled_units_per_human,0)*coalesce(e.participant_count,0))::text,'unissuedUnits',coalesce(e.unissued_remainder_units,0)::text,'projectedLiability2x',coalesce(e.pool_units,0)::text,'projectedLiability5x',coalesce(e.pool_units,0)::text,'projectedLiability10x',coalesce(e.pool_units,0)::text),'genesis',jsonb_build_object('campaignId',c.id,'budgetUnits',coalesce(c.budget_units,0)::text,'distributedUnits',coalesce(c.distributed_units,0)::text,'reservedUnits',coalesce(c.reserved_units,0)::text,'remainingUnits',(coalesce(c.budget_units,0)-coalesce(c.distributed_units,0)-coalesce(c.reserved_units,0))::text,'participants',(select count(distinct user_id)::text from public.cap_distributions where source='GENESIS_GROWTH' and (c.id is null or campaign_id=c.id)),'byQuest',q,'verifiedReferrals',(select count(*)::text from public.cap_genesis_referrals where qualified_at is not null),'milestoneQualifications',(select count(*)::text from public.cap_growth_progress pr join public.cap_growth_quests qu on qu.id=pr.quest_id where qu.kind='TITLE_COUNT_MILESTONE' and pr.status in ('QUALIFIED','CLAIMED')),'externalPending',(select count(*)::text from public.cap_growth_progress pr join public.cap_growth_quests qu on qu.id=pr.quest_id where qu.verification_mode='EXTERNAL' and pr.status='PENDING_VERIFICATION')),'cap',public.worldcap_cap_totals_json(null),'trust',jsonb_build_object('immutableLedgerRows',(select count(*)::text from public.cap_distributions),'accountingMode','simulated','productionTokenTransfers',false));
+  return jsonb_build_object(
+    'generatedAt',now(),
+    'humanClaim',jsonb_build_object(
+      'period',e.calendar_period,'poolUnits',coalesce(e.pool_units,0)::text,'participants',coalesce(e.participant_count,0)::text,
+      'settledUnits',(coalesce(e.settled_units_per_human,0)*coalesce(e.participant_count,0))::text,'settledUnitsPerHuman',coalesce(e.settled_units_per_human,0)::text,
+      'unissuedUnits',coalesce(e.unissued_remainder_units,0)::text,'previousPeriodParticipants',coalesce(previous_e.participant_count,0)::text,
+      'participantGrowthBps',case when coalesce(previous_e.participant_count,0)>0 then floor(((coalesce(e.participant_count,0)-previous_e.participant_count)*10000)/previous_e.participant_count)::text else null end,
+      'projectedShare2x',case when coalesce(e.participant_count,0)>0 then floor(e.pool_units/(e.participant_count*2))::text else '0' end,
+      'projectedShare5x',case when coalesce(e.participant_count,0)>0 then floor(e.pool_units/(e.participant_count*5))::text else '0' end,
+      'projectedShare10x',case when coalesce(e.participant_count,0)>0 then floor(e.pool_units/(e.participant_count*10))::text else '0' end),
+    'product',jsonb_build_object(
+      'users',(select count(*)::text from public.users),'verifiedHumans',(select count(*)::text from public.world_identities where verification_level='proof_of_human'),
+      'titlesIssued',(select count(*)::text from public.titles),'settledPurchases',(select count(*)::text from public.purchases where status='settled'),
+      'activeCampaignId',active_campaign.id,'monthlyDrawStatus',monthly_draw.status,'quarterlyDrawStatus',quarterly_draw.status),
+    'genesis',jsonb_build_object('campaignId',c.id,'budgetUnits',coalesce(c.budget_units,0)::text,'distributedUnits',coalesce(c.distributed_units,0)::text,'reservedUnits',coalesce(c.reserved_units,0)::text,'remainingUnits',(coalesce(c.budget_units,0)-coalesce(c.distributed_units,0)-coalesce(c.reserved_units,0))::text,'participants',(select count(distinct user_id)::text from public.cap_distributions where source='GENESIS_GROWTH' and (c.id is null or campaign_id=c.id)),'byQuest',q,'verifiedReferrals',(select count(*)::text from public.cap_genesis_referrals where qualified_at is not null),'milestoneQualifications',(select count(*)::text from public.cap_growth_progress pr join public.cap_growth_quests qu on qu.id=pr.quest_id where qu.kind='TITLE_COUNT_MILESTONE' and pr.status in ('QUALIFIED','CLAIMED')),'externalPending',(select count(*)::text from public.cap_growth_progress pr join public.cap_growth_quests qu on qu.id=pr.quest_id where qu.verification_mode='EXTERNAL' and pr.status='PENDING_VERIFICATION')),
+    'cap',public.worldcap_cap_totals_json(null),
+    'trust',jsonb_build_object(
+      'immutableLedgerRows',(select count(*)::text from public.cap_distributions),'accountingMode','simulated','productionTokenTransfers',false,
+      'latestDrawId',latest_draw.id,'manifestCommitment',latest_draw.eligibility_commitment,'randomnessStatus',coalesce(latest_job.status,'NOT_REQUESTED'),
+      'externalProofStatus',case when latest_job.proof_reference is not null then 'PRESENT' when latest_job.status in ('fulfilled','resolved') then 'MISSING' else 'NOT_AVAILABLE' end,
+      'anchorStatus','EXTERNAL_NOT_RECORDED','verifyDrawStatus',case when latest_draw.status in ('resolved','settled') and latest_draw.winning_title_id is not null then 'READY_FOR_RECOMPUTE' else 'NOT_AVAILABLE' end),
+    'operations',jsonb_build_object(
+      'reconciliationPending',(select count(*)::text from public.payment_reconciliation_jobs where status in ('pending','processing','failed')),
+      'reconciliationFailedOrStuck',(select count(*)::text from public.payment_reconciliation_jobs where status in ('failed','stuck')),
+      'drawJobsFailed',(select count(*)::text from public.draw_coordinator_jobs where status='failed'),'readinessStatus','DATABASE_REACHABLE'));
 end; $$;
 
 create or replace function public.worldcap_public_cap_fairness_summary() returns jsonb

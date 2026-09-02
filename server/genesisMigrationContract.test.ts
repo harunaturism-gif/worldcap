@@ -13,4 +13,11 @@ describe('Genesis CAP additive migration contract', () => {
   it('counts only verified settled purchases for Title milestones', () => { assert.match(sql, /p\.status='settled'/); assert.match(sql, /p\.settlement_mode='verified'/); });
   it('retires service-role mutation access to daily claim and paid scratch V1', () => { assert.match(sql, /revoke execute on function public\.worldcap_claim_human_cap/); assert.match(sql, /revoke execute on function public\.worldprize_reveal_scratch/); });
   it('contains no seeded Genesis campaign or reward amount', () => { assert.doesNotMatch(sql, /insert into public\.cap_growth_campaigns/i); assert.doesNotMatch(sql, /insert into public\.cap_growth_quests/i); });
+  it('exposes protected product, trust, and operations aggregates without control operations', () => {
+    assert.match(sql, /'product',jsonb_build_object/);
+    assert.match(sql, /'trust',jsonb_build_object/);
+    assert.match(sql, /'operations',jsonb_build_object/);
+    assert.match(sql, /'projectedShare10x'/);
+    assert.match(sql, /'anchorStatus','EXTERNAL_NOT_RECORDED'/);
+  });
 });
